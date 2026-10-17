@@ -406,3 +406,25 @@ func TestUIState(t *testing.T) {
 		t.Fatalf("bad json %d", resp.StatusCode)
 	}
 }
+
+// An <img> tag can't send headers, so attachment downloads take ?token= too.
+func TestAttachmentTokenQuery(t *testing.T) {
+	e := setup(t)
+	var it model.Item
+	e.do(t, "POST", "/api/items", map[string]any{"title": "x"}, &it)
+	upload(t, e, it.ID, "shot.png", "png1")
+	resp, err := http.Get(e.srv.URL + "/api/items/1/attachments/shot.png?token=" + tok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || string(b) != "png1" {
+		t.Fatalf("%d %q", resp.StatusCode, b)
+	}
+	resp, _ = http.Get(e.srv.URL + "/api/items/1/attachments/shot.png?token=wrong")
+	resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Fatalf("wrong token: %d", resp.StatusCode)
+	}
+}

@@ -93,9 +93,9 @@ func (s *server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/health" {
 			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-			// A browser EventSource can't set headers, so the event stream
-			// also takes the token from the query.
-			if got == "" && r.URL.Path == "/api/events" {
+			// A browser EventSource or <img> can't set headers, so the event
+			// stream and attachment downloads also take the token from the query.
+			if got == "" && r.Method == http.MethodGet && queryTokenPath(r.URL.Path) {
 				got = r.URL.Query().Get("token")
 			}
 			if subtle.ConstantTimeCompare([]byte(got), []byte(s.token)) != 1 {
@@ -105,6 +105,10 @@ func (s *server) auth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func queryTokenPath(p string) bool {
+	return p == "/api/events" || (strings.HasPrefix(p, "/api/items/") && strings.Contains(p, "/attachments/"))
 }
 
 // RunTicker advances the timer every second, publishing timer.tick while it
