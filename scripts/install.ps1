@@ -1,5 +1,6 @@
-# Installs tcc and tccd with `go install`, builds the windowless tccw, and copies the terran-cc skill into
-# ~/.claude/skills.
+# Installs tcc and tccd with `go install`, builds the windowless tccw and the
+# tcc-desktop app, adds Start Menu and sign-in shortcuts, and copies the
+# terran-cc skill into ~/.claude/skills.
 #
 # The rewired dispatch-tasks skill reads tickets from Terran CC instead of
 # Obsidian. It only replaces your current one when you pass -DispatchTasks,
@@ -25,10 +26,37 @@ try {
     # when a Stream Deck button runs it.
     go build -ldflags -H=windowsgui -o (Join-Path $bin 'tccw.exe') ./cmd/tcc
     if ($LASTEXITCODE -ne 0) { throw 'building tccw failed' }
+
+    # The desktop app: build the Svelte frontend, then embed it in the Go shell.
+    Push-Location desktop/frontend
+    try {
+        npm ci --no-fund --no-audit
+        if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+        npm run build
+        if ($LASTEXITCODE -ne 0) { throw 'building the frontend failed' }
+    } finally {
+        Pop-Location
+    }
+    Get-Process tcc-desktop -ErrorAction SilentlyContinue | Stop-Process -Force
+    go -C desktop build -ldflags -H=windowsgui -o (Join-Path $bin 'tcc-desktop.exe') .
+    if ($LASTEXITCODE -ne 0) { throw 'building tcc-desktop failed' }
 } finally {
     Pop-Location
 }
-Write-Host "Installed tcc, tccw and tccd to $bin"
+Write-Host "Installed tcc, tccw, tccd and tcc-desktop to $bin"
+
+# Start Menu shortcut, and start the app when you sign in.
+$shell = New-Object -ComObject WScript.Shell
+$programs = [Environment]::GetFolderPath('Programs')
+$startup = [Environment]::GetFolderPath('Startup')
+foreach ($dir in @($programs, $startup)) {
+    $lnk = $shell.CreateShortcut((Join-Path $dir 'Terran CC.lnk'))
+    $lnk.TargetPath = Join-Path $bin 'tcc-desktop.exe'
+    $lnk.WorkingDirectory = $bin
+    $lnk.Description = 'Terran CC command centre'
+    $lnk.Save()
+}
+Write-Host 'Added Terran CC to the Start Menu and to sign-in startup'
 if (-not (($env:PATH -split ';') -contains $bin)) {
     Write-Warning "$bin is not on your PATH. Add it so 'tcc' works from any terminal."
 }
