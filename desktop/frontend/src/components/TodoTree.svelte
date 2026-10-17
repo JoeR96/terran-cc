@@ -15,7 +15,12 @@
   ]
   const OPEN_KEY = 'tcc.todo.open'
   const SHUT_KEY = 'tcc.todo.shut'
-  const DEFAULT_OPEN = GROUPS.flatMap(g => [`g:${g.ctx}`, `h:${g.ctx}:today`])
+  // All sits on top and gathers each group's to-dos by date. OSRS terms are
+  // goals rather than dates, so only OSRS's Today joins in.
+  const ALL = [['today', 'Today', ['irl', 'work', 'osrs']], ['week', 'This week', ['irl', 'work']], ['month', 'This month', ['irl', 'work']]]
+  const TAG = { irl: 'me', work: 'work', osrs: 'osrs' }
+  const groupOf = ctx => GROUPS.find(g => g.ctx === ctx)
+  const DEFAULT_OPEN = ['g:all', 'h:all:today', ...GROUPS.flatMap(g => [`g:${g.ctx}`, `h:${g.ctx}:today`])]
 
   const load = (k, d) => {
     try {
@@ -88,6 +93,7 @@
   const listKey = siblings => siblings.length && `${siblings[0].item.context}:${siblings[0].item.when}:${siblings[0].item.parent_id ?? ''}`
 
   const trees = $derived(Object.fromEntries(GROUPS.flatMap(g => g.hz.map(([w]) => [`${g.ctx}:${w}`, todoTree(db.items, w, g.ctx)]))))
+  const allNodes = $derived(Object.fromEntries(ALL.map(([w, , ctxs]) => [w, ctxs.flatMap(c => trees[`${c}:${w}`])])))
   const openIn = nodes => nodes.reduce((n, c) => n + c.open + (c.item.status !== 'done'), 0)
 
   let adding = $state(null) // {ctx, when, parent}
@@ -133,7 +139,7 @@
   </div>
 {/snippet}
 
-{#snippet todo(n, g, when, depth, siblings)}
+{#snippet todo(n, g, when, depth, siblings, tag = false)}
   {@const it = n.item}
   <div
     class="row t"
@@ -166,6 +172,7 @@
         use:focus
       />
     {:else}
+      {#if tag}<span class="ctag {g.ctx}">{TAG[g.ctx]}</span>{/if}
       <span class="title" role="button" tabindex="0" title="Click to rename" onclick={() => ((editing = it.id), (editDraft = it.title))} onkeydown={() => {}}>{it.title}</span>
       {#if n.children.length && shut.includes(it.id)}<span class="faint n">{n.open}</span>{/if}
       <span class="acts">
@@ -182,6 +189,23 @@
 {/snippet}
 
 <h6>To-dos</h6>
+<button class="ghost row node" onclick={() => toggleOpen('g:all')}>
+  <span class="caret">{open.includes('g:all') ? '▾' : '▸'}</span><b>All</b><span class="faint n">{ALL.reduce((n, [w]) => n + openIn(allNodes[w]), 0)}</span>
+</button>
+{#if open.includes('g:all')}
+  {#each ALL as [w, label] (w)}
+    {@const hk = `h:all:${w}`}
+    <div class="row hz" style="padding-left:14px">
+      <button class="ghost node" onclick={() => toggleOpen(hk)}>
+        <span class="caret">{open.includes(hk) ? '▾' : '▸'}</span>{label}<span class="faint n">{openIn(allNodes[w])}</span>
+      </button>
+    </div>
+    {#if open.includes(hk)}
+      {#each allNodes[w] as n (n.item.id)}{@render todo(n, groupOf(n.item.context || 'irl'), w, 2, trees[`${n.item.context || 'irl'}:${w}`], true)}{/each}
+    {/if}
+  {/each}
+{/if}
+<div class="sep"></div>
 {#each groups as g (g.ctx)}
   {@const gk = `g:${g.ctx}`}
   <button
@@ -238,6 +262,10 @@
   .acts { display: none; gap: 1px; align-items: center; flex: none; }
   .t:hover .acts { display: flex; }
   .acts button { padding: 0 4px; font-size: 11px; }
+  .ctag { flex: none; font-size: 9.5px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: var(--btn); color: var(--muted); }
+  .ctag.work { background: #23334a; color: #9cc4ff; }
+  .ctag.osrs { background: #3d3524; color: var(--yellow); }
+  .sep { border-top: 1px solid var(--line); margin: 5px 0; }
   .over { box-shadow: inset 0 2px 0 var(--accent); }
   .grp, .t { cursor: grab; }
   .edit, .row input { flex: 1; min-width: 0; padding: 0 4px; }

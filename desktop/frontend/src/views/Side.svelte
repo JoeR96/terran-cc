@@ -16,12 +16,16 @@
   // rest into to-dos (left) and goals + projects (right). Narrower, it all
   // stacks in one scrolling column; the trees fold to save space.
   const WIDE = 560
+  // Wider still, the timer and habits share one band and the rest splits
+  // into three: to-dos, goals + projects, assistant / notes.
+  const WIDER = 1100
 
   let width = $state(0)
   let menu = $state(false)
   let drawer = $state(null)
   let onTop = $state(route.query.get('top') !== '0')
   const wide = $derived(width >= WIDE)
+  const wider = $derived(width >= WIDER)
 
   // A lock-in countdown takes over the widget until it ends or is clicked.
   let dismissed = $state(false)
@@ -65,7 +69,7 @@
 
 <div class="sw" bind:clientWidth={width}>
   <div class="hd drag">
-    <span>{dayLabel(new Date((db.date || new Date().toISOString().slice(0, 10)) + 'T12:00'))}</span>
+    <span>{dayLabel(new Date((db.date || new Date().toISOString().slice(0, 10)) + 'T12:00'))}{#if wider} · 🔥 {db.streak}-day streak{/if}</span>
     <span class="nodrag btns">
       <button class="ghost" title="Menu" onclick={() => (menu = !menu)}>⋯</button>
       {#if conn().shell}
@@ -89,6 +93,21 @@
       <span class="task">{t.label}</span>
       <span class="bar"><i style="width:{t.total_s ? (100 * (t.total_s - t.remaining_s)) / t.total_s : 0}%"></i></span>
     </button>
+  {:else if wider}
+    <div class="body wide">
+      <div class="sec band">
+        <div class="bandtimer"><Timer /></div>
+        <div class="bandhabits"><Habits wide title={false} /></div>
+      </div>
+      <div class="cols three">
+        <div class="col"><TodoTree onopen={openItem} /></div>
+        <div class="col">
+          <div class="part"><Goals onopen={openItem} /></div>
+          <div class="part"><ProjectTree onopen={openItem} /></div>
+        </div>
+        <div class="col boxcol">{@render box()}</div>
+      </div>
+    </div>
   {:else if wide}
     <div class="body wide">
       <div class="sec"><Timer /></div>
@@ -130,6 +149,11 @@
   .sec { padding: 8px 10px; border-bottom: 1px solid var(--line); }
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 10px; }
   .col { min-height: 0; overflow-y: auto; background: var(--bg); border-radius: 7px; padding: 8px 10px; }
+  .band { display: flex; gap: 14px; align-items: center; }
+  .bandtimer { flex: none; width: 250px; }
+  .bandhabits { flex: 1; min-width: 0; }
+  .cols.three { grid-template-columns: 27fr 40fr 33fr; }
+  .boxcol { display: flex; flex-direction: column; overflow: hidden; }
   .col.right { display: flex; flex-direction: column; overflow: hidden; }
   .scroll { flex: 1; min-height: 0; overflow-y: auto; }
   .chatbox { flex: none; height: 42%; min-height: 160px; border-top: 1px solid var(--line); padding-top: 8px; }
