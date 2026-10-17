@@ -1,0 +1,5 @@
+.superpowers/
+bin/
+node_modules/
+dist/
+*.exe
