@@ -1,6 +1,7 @@
 <script>
   import { projectOf } from '../lib/store.svelte.js'
   import { shell, conn } from '../lib/api.js'
+  import { route } from '../lib/route.svelte.js'
   import WidgetBody from '../components/WidgetBody.svelte'
   import ItemDrawer from '../components/ItemDrawer.svelte'
 
@@ -14,7 +15,7 @@
   const widget = $derived({ id: 'pop', type, project_id: projectId })
   const name = $derived(type === 'project' ? projectOf(projectId)?.name || 'Project' : NAMES[type] || type)
   let drawer = $state(null)
-  let onTop = $state(true)
+  let onTop = $state(route.query.get('top') !== '0')
 </script>
 
 <div class="pop">

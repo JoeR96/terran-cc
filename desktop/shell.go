@@ -46,20 +46,29 @@ type shell struct {
 	wins     map[string]*entry
 	order    []string
 	quitting bool
+	noSave   bool // the saved list couldn't be read; don't overwrite it
 	save     *time.Timer
 	seq      int
+
+	sideOpening bool
 }
 
 func newShell(base, token string) *shell {
 	return &shell{base: base, token: token, wins: map[string]*entry{}}
 }
 
-func (s *shell) url(st winState) string {
+// url is the frontend route for st. top tells the frameless windows whether
+// they start always-on-top, so their pin button starts in the right state.
+func (s *shell) url(st winState, top bool) string {
+	t := "&top=0"
+	if top {
+		t = "&top=1"
+	}
 	switch st.Kind {
 	case "side":
-		return "/#/side?win=" + st.ID
+		return "/#/side?win=" + st.ID + t
 	case "widget":
-		u := "/#/widget/" + st.Widget.Type + "?win=" + st.ID
+		u := "/#/widget/" + st.Widget.Type + "?win=" + st.ID + t
 		if st.Widget.ProjectID != 0 {
 			u += "&project=" + strconv.FormatInt(st.Widget.ProjectID, 10)
 		}
@@ -97,9 +106,17 @@ func (s *shell) defaultBounds(kind string) rect {
 }
 
 // open creates a window for st, or focuses the side widget if one is open.
+//
+// s.mu is never held across a Wails window call: those wait for the main
+// thread, and the main thread (tray clicks) takes s.mu, so holding it would
+// deadlock.
 func (s *shell) open(st winState) {
 	s.mu.Lock()
 	if st.Kind == "side" {
+		if s.sideOpening {
+			s.mu.Unlock()
+			return
+		}
 		for _, e := range s.wins {
 			if e.st.Kind == "side" {
 				s.mu.Unlock()
@@ -107,11 +124,19 @@ func (s *shell) open(st winState) {
 				return
 			}
 		}
+		s.sideOpening = true
+		defer func() {
+			s.mu.Lock()
+			s.sideOpening = false
+			s.mu.Unlock()
+		}()
 	}
 	if st.ID == "" {
 		s.seq++
 		st.ID = fmt.Sprintf("%s-%d-%d", st.Kind, time.Now().Unix()%100000, s.seq)
 	}
+	s.mu.Unlock()
+
 	if st.Kind == "dashboard" && st.BoardID == "" {
 		st.BoardID = "main"
 	}
@@ -134,7 +159,7 @@ func (s *shell) open(st winState) {
 	opts := application.WebviewWindowOptions{
 		Name:               st.ID,
 		Title:              "Terran CC",
-		URL:                s.url(st),
+		URL:                s.url(st, onTop),
 		Width:              st.Bounds.W,
 		Height:             st.Bounds.H,
 		AlwaysOnTop:        onTop,
@@ -157,8 +182,8 @@ func (s *shell) open(st winState) {
 		opts.Title = "Terran CC · side"
 	}
 	w := s.app.Window.NewWithOptions(opts)
-	e := &entry{st: st, w: w}
-	s.wins[st.ID] = e
+	s.mu.Lock()
+	s.wins[st.ID] = &entry{st: st, w: w}
 	s.order = append(s.order, st.ID)
 	s.mu.Unlock()
 
@@ -220,7 +245,11 @@ func (s *shell) saveNow() {
 			list = append(list, e.st)
 		}
 	}
+	skip := s.noSave
 	s.mu.Unlock()
+	if skip {
+		return
+	}
 	if err := s.putUI("windows", list); err != nil {
 		log.Printf("saving windows: %v", err)
 	}
@@ -252,21 +281,39 @@ func (s *shell) putUI(key string, v any) error {
 	return nil
 }
 
-func (s *shell) savedWindows() []winState {
+// savedWindows reads the saved window list. An empty list (nothing saved)
+// is not an error; a failed or garbled read is.
+func (s *shell) savedWindows() ([]winState, error) {
 	resp, err := s.apiReq("GET", "/api/ui/windows", nil)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("tccd answered %s", resp.Status)
+	}
 	var list []winState
-	json.NewDecoder(resp.Body).Decode(&list)
-	return list
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, fmt.Errorf("saved windows are not valid: %w", err)
+	}
+	return list, nil
 }
 
 // restore reopens the saved windows, or a dashboard and the side widget on
-// first run.
+// first run. If the list can't be read it opens the defaults but won't save
+// over the list this session.
 func (s *shell) restore() {
-	list := s.savedWindows()
+	list, err := s.savedWindows()
+	for i := 0; err != nil && i < 3; i++ {
+		time.Sleep(500 * time.Millisecond)
+		list, err = s.savedWindows()
+	}
+	if err != nil {
+		log.Printf("reading saved windows: %v; not saving window changes this session", err)
+		s.mu.Lock()
+		s.noSave = true
+		s.mu.Unlock()
+	}
 	if len(list) == 0 {
 		s.open(winState{Kind: "dashboard"})
 		s.open(winState{Kind: "side"})
@@ -301,9 +348,13 @@ func (s *shell) focusDashboard() {
 
 func (s *shell) flashAll() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	var ws []*application.WebviewWindow
 	for _, e := range s.wins {
-		e.w.Flash(true)
+		ws = append(ws, e.w)
+	}
+	s.mu.Unlock()
+	for _, w := range ws {
+		w.Flash(true)
 	}
 }
 
@@ -374,9 +425,12 @@ func (s *shell) middleware(next http.Handler) http.Handler {
 		case "state":
 			if e != nil {
 				s.mu.Lock()
+				// The frontend reports every route change: a board, or a
+				// project page (project_id set) opened from that board.
 				if spec.BoardID != "" {
 					e.st.BoardID = spec.BoardID
 				}
+				e.st.ProjectID = spec.ProjectID
 				s.scheduleSave()
 				s.mu.Unlock()
 			}

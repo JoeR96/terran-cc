@@ -3,7 +3,6 @@
   import { go } from '../lib/route.svelte.js'
   import { shell } from '../lib/api.js'
   import ItemDrawer from '../components/ItemDrawer.svelte'
-  import Chime from '../components/Chime.svelte'
 
   let { projectId, boardId = 'main' } = $props()
 
@@ -47,8 +46,10 @@
     if (!t) return
     const n = { title: t, project_id: projectId, status, kind: status === 'idea' ? 'idea' : 'task' }
     if (status === 'idea') n.status = 'backlog'
-    if (status === 'up_next') n.position = upNext.length + 1
-    await act.addItem(n)
+    const pos = upNext.length + 1
+    const it = await act.addItem(n)
+    // New items have no position field; put a new Up next item last.
+    if (it && status === 'up_next') await act.edit(it.id, { position: pos })
   }
   function drop(status) {
     const id = dragId
@@ -121,7 +122,6 @@
   </div>
 {/snippet}
 
-<Chime />
 <div class="page">
   <header>
     <div class="left">

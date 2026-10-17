@@ -33,8 +33,8 @@ func TestPlaceShrinksToFit(t *testing.T) {
 }
 
 func TestPlaceOffscreenOnKnownMonitorIsPulledBack(t *testing.T) {
-	// Monitor exists but the window was left almost entirely off it.
-	r, mon := placeOnScreen(rect{1900, 1030, 400, 300}, "\\\\.\\DISPLAY1", screens)
+	// Monitor exists but the window was left almost entirely off every screen.
+	r, mon := placeOnScreen(rect{1900, 1390, 400, 300}, "\\\\.\\DISPLAY1", screens)
 	if mon != "\\\\.\\DISPLAY1" || r.X+r.W > 1920 || r.Y+r.H > 1040 {
 		t.Fatalf("%+v %s", r, mon)
 	}
@@ -43,6 +43,15 @@ func TestPlaceOffscreenOnKnownMonitorIsPulledBack(t *testing.T) {
 func TestPlaceNoScreens(t *testing.T) {
 	r, mon := placeOnScreen(rect{10, 10, 300, 300}, "x", nil)
 	if r != (rect{10, 10, 300, 300}) || mon != "x" {
+		t.Fatalf("%+v %s", r, mon)
+	}
+}
+
+// Wails derives monitor IDs from HMONITOR handles, which change across
+// reboots. A window whose saved bounds still sit on a monitor stays there.
+func TestPlaceUnknownIDMatchesByGeometry(t *testing.T) {
+	r, mon := placeOnScreen(rect{2000, 100, 800, 600}, "old-handle", screens)
+	if mon != `\\.\DISPLAY2` || r != (rect{2000, 100, 800, 600}) {
 		t.Fatalf("%+v %s", r, mon)
 	}
 }

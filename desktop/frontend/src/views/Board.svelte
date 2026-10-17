@@ -5,7 +5,6 @@
   import { go } from '../lib/route.svelte.js'
   import WidgetBody from '../components/WidgetBody.svelte'
   import ItemDrawer from '../components/ItemDrawer.svelte'
-  import Chime from '../components/Chime.svelte'
 
   let { boardId } = $props()
 
@@ -81,7 +80,6 @@
   function switchBoard(id) {
     boardMenu = false
     go(`/board/${id}`)
-    shell('state', { board_id: id })
   }
   function newBoard() {
     const name = prompt('Board name', `Monitor ${boards.length + 1}`)
@@ -111,7 +109,6 @@
   }
 </script>
 
-<Chime />
 <div class="page">
   <header>
     <div class="left">

@@ -30,8 +30,8 @@ try {
     # The desktop app: build the Svelte frontend, then embed it in the Go shell.
     Push-Location desktop/frontend
     try {
-        npm ci --no-fund --no-audit
-        if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+        npm install --no-fund --no-audit
+        if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
         npm run build
         if ($LASTEXITCODE -ne 0) { throw 'building the frontend failed' }
     } finally {

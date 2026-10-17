@@ -7,6 +7,7 @@
   import Habits from '../components/Habits.svelte'
   import TodoList from '../components/TodoList.svelte'
   import Chime from '../components/Chime.svelte'
+  import { route } from '../lib/route.svelte.js'
 
   const FOLD_H = 28
   const flexSecs = [
@@ -19,7 +20,7 @@
   let heights = $state({})
   let expanded = $state([])
   let menu = $state(false)
-  let onTop = $state(true)
+  let onTop = $state(route.query.get('top') !== '0')
 
   const fit = $derived(
     fitSections(

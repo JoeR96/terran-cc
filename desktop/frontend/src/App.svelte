@@ -1,6 +1,7 @@
 <script>
   import { db } from './lib/store.svelte.js'
   import { route } from './lib/route.svelte.js'
+  import { shell, conn } from './lib/api.js'
   import Side from './views/Side.svelte'
   import Board from './views/Board.svelte'
   import Project from './views/Project.svelte'
@@ -8,9 +9,14 @@
 
   let { startError = '' } = $props()
   const [view, arg] = $derived([route.parts[0] || 'board', route.parts[1]])
-  let lastBoard = $state('main')
+  let lastBoard = $state(route.query.get('board') || 'main')
   $effect(() => {
     if (view === 'board' && arg) lastBoard = arg
+  })
+  // Tell the shell where a dashboard window is, so it reopens there.
+  $effect(() => {
+    if (!conn()?.shell || (view !== 'board' && view !== 'project')) return
+    shell('state', view === 'board' ? { board_id: arg || 'main', project_id: 0 } : { board_id: lastBoard, project_id: +arg })
   })
 </script>
 

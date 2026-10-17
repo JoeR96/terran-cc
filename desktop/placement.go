@@ -26,6 +26,13 @@ func placeOnScreen(saved rect, monitor string, screens []screen) (rect, string) 
 			return clampInto(saved, s.Work), s.ID
 		}
 	}
+	// Monitor IDs come from HMONITOR handles, which change across reboots,
+	// so a window still sitting on some monitor stays on that one.
+	for _, s := range screens {
+		if overlap(saved, s.Work) >= 80 {
+			return clampInto(saved, s.Work), s.ID
+		}
+	}
 	p := screens[0]
 	for _, s := range screens {
 		if s.Primary {

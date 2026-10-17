@@ -92,9 +92,9 @@ func main() {
 	tray.SetIcon(trayIcon)
 	tray.SetTooltip("Terran CC")
 	menu := app.NewMenu()
-	menu.Add("Dashboard").OnClick(func(*application.Context) { s.focusDashboard() })
-	menu.Add("New dashboard window").OnClick(func(*application.Context) { s.open(winState{Kind: "dashboard"}) })
-	menu.Add("Side widget").OnClick(func(*application.Context) { s.open(winState{Kind: "side"}) })
+	menu.Add("Dashboard").OnClick(func(*application.Context) { go s.focusDashboard() })
+	menu.Add("New dashboard window").OnClick(func(*application.Context) { go s.open(winState{Kind: "dashboard"}) })
+	menu.Add("Side widget").OnClick(func(*application.Context) { go s.open(winState{Kind: "side"}) })
 	menu.AddSeparator()
 	menu.Add("Start / pause timer").OnClick(func(*application.Context) {
 		if resp, err := s.apiReq("POST", "/api/timer/toggle", nil); err == nil {
@@ -104,10 +104,10 @@ func main() {
 	menu.AddSeparator()
 	menu.Add("Quit Terran CC").OnClick(func(*application.Context) { s.quit() })
 	tray.SetMenu(menu)
-	tray.OnClick(func() { s.focusDashboard() })
+	tray.OnClick(func() { go s.focusDashboard() }) // off the main thread
 
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
-		s.restore()
+		go s.restore() // it may wait for tccd; keep the main thread free
 		go s.watch(tray, notifier)
 	})
 
