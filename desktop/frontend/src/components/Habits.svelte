@@ -3,7 +3,8 @@
   import { habitValue } from '../lib/format.js'
   import { select } from '../lib/actions.js'
 
-  let { bars = true, title = true } = $props()
+  // wide: habits sit side by side as cards instead of one per line.
+  let { bars = true, title = true, wide = false } = $props()
 
   let editing = $state(null)
   let draft = $state('')
@@ -24,7 +25,9 @@
 {#if title}
   <h6>Habits <span class="streak" title="Days in a row with every habit hit">🔥{db.streak}</span></h6>
 {/if}
+<div class="habs" class:wide>
 {#each db.habits as h (h.id)}
+  <div class="cell">
   <div class="h">
     <span class="name" title={h.name}>{h.icon} {short(h.name)}</span>
     {#if h.type === 'check'}
@@ -52,11 +55,17 @@
   </div>
   {#if bars && h.type !== 'check'}
     <div class="bar"><i class:hit={h.hit} style="width:{pct(h)}%"></i></div>
+  {:else if wide}
+    <div class="bar"><i class:hit={h.hit} style="width:{h.value >= 1 ? 100 : 0}%"></i></div>
   {/if}
+  </div>
 {/each}
+</div>
 
 <style>
   .streak { color: var(--accent); letter-spacing: 0; text-transform: none; font-size: 11px; }
+  .habs.wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 10px; }
+  .wide .cell { background: var(--panel-2); border-radius: 6px; padding: 3px 8px 2px; }
   .h { display: flex; justify-content: space-between; align-items: center; min-height: 22px; gap: 6px; }
   .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .p { display: flex; gap: 3px; align-items: center; }

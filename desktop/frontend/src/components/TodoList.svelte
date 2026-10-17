@@ -1,18 +1,21 @@
 <script>
   import { db, act, bucket, projectOf } from '../lib/store.svelte.js'
   import { focus } from '../lib/actions.js'
+  import { todos } from '../lib/lists.js'
 
   // when: today | week | month | anytime. limit caps rows (side widget).
-  let { when, title = '', limit = 0, onopen = null } = $props()
+  // context: 'irl' or 'work' shows only personal to-dos of that kind; unset
+  // shows everything for that when, project tickets included.
+  let { when, context = null, title = '', limit = 0, onopen = null } = $props()
 
-  const all = $derived(bucket(when))
+  const all = $derived(context ? todos(db.items, when, context) : bucket(when))
   const doneCount = $derived(all.filter(i => i.status === 'done').length)
   const rows = $derived(limit && all.length > limit ? all.slice(0, limit - 1) : all)
   const more = $derived(all.length - rows.length)
 
   let adding = $state(false)
   let draft = $state('')
-  let work = $state(false)
+  let work = $state(context === 'work')
   let editing = $state(null)
   let editDraft = $state('')
 
@@ -67,7 +70,7 @@
         {#if it.project_id}<span class="tag proj">{projectOf(it.project_id)?.slug}</span>{/if}{it.title}
       </span>
       <span class="acts">
-        {#if it.context === 'work'}<span class="ctx" title="Work">W</span>{/if}
+        {#if it.context === 'work' && !context}<span class="ctx" title="Work">W</span>{/if}
         {#if onopen}<button class="ghost" title="Open" onclick={() => onopen(it)}>↗</button>{/if}
         <button class="ghost" title="Delete" onclick={() => act.remove(it.id)}>✕</button>
       </span>
@@ -94,7 +97,7 @@
       }}
       use:focus
     />
-    <button class="ghost ctxbtn" class:on={work} title="Work or IRL" onmousedown={e => e.preventDefault()} onclick={() => (work = !work)}>{work ? 'work' : 'irl'}</button>
+    {#if !context}<button class="ghost ctxbtn" class:on={work} title="Work or IRL" onmousedown={e => e.preventDefault()} onclick={() => (work = !work)}>{work ? 'work' : 'irl'}</button>{/if}
   </div>
 {:else}
   <button class="ghost add" onclick={() => (adding = true)}>+ add</button>
