@@ -16,6 +16,16 @@
   const goalIcon = title => title.replace(/\s*\(.*\)\s*/g, '').replace(/^\d+\s+/, '').trim().replace(/ /g, '_') + '.png'
   const hide = e => (e.currentTarget.style.visibility = 'hidden')
 
+  // Run cards open to show every patch; which ones stay open is per window.
+  let openRuns = $state((() => { try { return JSON.parse(localStorage.getItem('tcc.osrs.runs')) || [] } catch { return [] } })())
+  function toggleRun(k) {
+    openRuns = openRuns.includes(k) ? openRuns.filter(x => x !== k) : [...openRuns, k]
+    try {
+      localStorage.setItem('tcc.osrs.runs', JSON.stringify(openRuns))
+    } catch {}
+  }
+  const patchText = (p, now) => (p.state === 'growing' ? runText({ state: 'growing', ready_at: p.ready_at }, now) : p.state)
+
   let editing = $state(null) // {key, field}
   let draft = $state('')
   async function saveNumber() {
@@ -53,13 +63,28 @@
   <div class="runs">
     {#each o.runs as r (r.key)}
       {@const txt = runText(r, db.now)}
-      <div class="run" class:ready={txt === 'ready'} class:unknown={r.state === 'unknown'} title={`${r.ready}/${r.total} patches ready${r.note ? ' · ' + r.note : ''}${r.issue ? ' · ' + r.issue : ''}`}>
+      {@const isOpen = openRuns.includes(r.key)}
+      <button class="ghost run" class:ready={txt === 'ready'} class:open={isOpen} class:unknown={r.state === 'unknown'} title={r.issue || `${r.ready}/${r.total} ready`} onclick={() => toggleRun(r.key)}>
         <img src={osrsIcon(r.icon)} alt="" onerror={hide} />
-        <div class="rt">
-          <div class="rn">{r.name}{#if r.done_today}<span class="tick" title="Done today"> ✓</span>{/if}</div>
-          <div class="rs">{txt}{#if r.note} · {r.note}{/if}{#if r.issue} · <span class="bad">{r.issue}</span>{/if}</div>
+        <span class="rt">
+          <span class="rn">{r.name}{#if r.done_today}<span class="tick" title="Done today"> ✓</span>{/if}</span>
+          <span class="rs">{txt} · {r.ready}/{r.total}{#if r.note} · {r.note}{/if}{#if r.issue} · <span class="bad">{r.issue}</span>{/if}</span>
+        </span>
+        <span class="caret">{isOpen ? '▾' : '▸'}</span>
+      </button>
+      {#if isOpen}
+        <div class="patches">
+          {#each r.patches as p, i (i)}
+            <div class="patch {p.state}">
+              <span class="pn">{p.name}</span>
+              <span class="pc faint">{p.crop || '–'}</span>
+              <span class="ps">{patchText(p, db.now)}</span>
+            </div>
+          {:else}
+            <div class="faint">RuneLite hasn't seen any of these patches yet.</div>
+          {/each}
         </div>
-      </div>
+      {/if}
     {/each}
   </div>
 
@@ -70,7 +95,7 @@
       <img src={osrsIcon(s.icon)} alt="" onerror={hide} />
       <span class="nm" title={s.label}>{s.label}</span>
       <div class="bar {s.status}"><i style="width:{b.fill}%"></i>{#if b.mark}<b style="left:{b.mark}%"></b>{/if}</div>
-      <span class="vals"><strong>{short(s.have)}</strong>{#if s.raw_have} <span class="faint" title="Raw, not counted">+{short(s.raw_have)} raw</span>{/if} · {@render num(s, 'sufficient')} · {@render num(s, 'target')}</span>
+      <span class="vals"><strong>{short(s.have)}</strong>{#if s.raw_have} <span class="cook" title="Raw in the bank, not counted until cooked">+{short(s.raw_have)} raw · cook</span>{/if} · {@render num(s, 'sufficient')} · {@render num(s, 'target')}</span>
     </div>
   {/each}
 
@@ -112,7 +137,20 @@
   .warn { color: var(--yellow); font-size: 11px; margin-bottom: 3px; }
   h6 { margin-top: 12px; }
   .runs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
-  .run { display: flex; gap: 7px; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; }
+  .run { display: flex; gap: 7px; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; text-align: left; color: var(--text); }
+  .run:hover { background: var(--card); }
+  .run.open { border-style: dashed; }
+  .run .caret { margin-left: auto; color: var(--muted); font-size: 10px; }
+  .rt { display: flex; flex-direction: column; }
+  .patches { grid-column: 1 / -1; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 14px; }
+  .patch { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; font-size: 11px; min-height: 19px; align-items: center; }
+  .pn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ps { min-width: 52px; text-align: right; }
+  .patch.ready .ps { color: var(--green); }
+  .patch.empty .ps { color: var(--yellow); }
+  .patch.dead .ps, .patch.diseased .ps { color: var(--red); }
+  .patch.growing .ps { color: var(--muted); }
+  .cook { color: var(--yellow); }
   .run.ready { border-color: var(--green); }
   .run.unknown { opacity: .55; }
   .run img { width: 24px; height: 24px; object-fit: contain; flex: none; }

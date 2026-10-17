@@ -1,24 +1,43 @@
 package osrs
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // Run is one of Joe's daily runs as the widget shows it.
 type Run struct {
-	Key       string `json:"key"`
-	Name      string `json:"name"`
-	Icon      string `json:"icon"`            // OSRS Wiki file name
-	State     string `json:"state"`           // ready | growing | unknown
-	ReadyAt   int64  `json:"ready_at"`        // unix; when the last growing patch finishes
-	DoneToday bool   `json:"done_today"`      // planted or seeded since local midnight
-	Ready     int    `json:"ready"`           // patches ready (or empty, waiting to be planted)
-	Total     int    `json:"total"`           // patches RuneLite has seen
-	Note      string `json:"note,omitempty"`  // e.g. the contract crop
-	Issue     string `json:"issue,omitempty"` // e.g. "1 diseased"
+	Key       string        `json:"key"`
+	Name      string        `json:"name"`
+	Icon      string        `json:"icon"`            // OSRS Wiki file name
+	State     string        `json:"state"`           // ready | growing | unknown
+	ReadyAt   int64         `json:"ready_at"`        // unix; when the last growing patch finishes
+	DoneToday bool          `json:"done_today"`      // planted or seeded since local midnight
+	Ready     int           `json:"ready"`           // patches ready (or empty, waiting to be planted)
+	Total     int           `json:"total"`           // patches RuneLite has seen
+	Note      string        `json:"note,omitempty"`  // e.g. the contract crop
+	Issue     string        `json:"issue,omitempty"` // e.g. "Lletya dragonfruit dead"
+	Patches   []PatchStatus `json:"patches"`
+}
+
+// PatchStatus is one patch (or bird house) inside a run.
+type PatchStatus struct {
+	Name    string `json:"name"`     // e.g. "Farming Guild" or "Ardougne (North)"
+	Crop    string `json:"crop"`     // e.g. "Ranarr", "" when empty
+	State   string `json:"state"`    // growing | ready | empty | diseased | dead
+	ReadyAt int64  `json:"ready_at"` // unix, when growing
+}
+
+// birdHouseSpaces are RuneLite's names for the four spots, in varp order.
+var birdHouseSpaces = []string{"Mushroom Meadow (North)", "Mushroom Meadow (South)", "Verdant Valley (Northeast)", "Verdant Valley (Southwest)"}
+
+func patchName(r region, p patch) string {
+	if p.Name == "" {
+		return r.Name
+	}
+	return r.Name + " (" + p.Name + ")"
 }
 
 // birdHouseMinutes is how long a seeded bird house takes to fill.
@@ -66,19 +85,30 @@ func (t timers) seen(now int64, keep func(region, patch) bool) []seenPatch {
 // summarize folds patches into one run.
 func summarize(run Run, ps []seenPatch, now, midnight int64) Run {
 	run.Total = len(ps)
-	diseased, dead := 0, 0
+	run.Patches = []PatchStatus{}
+	var problems []string
 	for _, s := range ps {
-		growing := s.pred.State.Crop == cropGrowing && s.pred.State.Produce != PWEEDS && s.pred.DoneAt > now
+		weeds := s.pred.State.Produce == PWEEDS
+		growing := s.pred.State.Crop == cropGrowing && !weeds && s.pred.DoneAt > now
+		ps := PatchStatus{Name: patchName(s.region, s.patch), Crop: produces[s.pred.State.Produce].Name}
 		switch {
+		case weeds:
+			ps.State, ps.Crop = "empty", ""
+			run.Ready++
 		case growing:
+			ps.State, ps.ReadyAt = "growing", s.pred.DoneAt
 			run.ReadyAt = max(run.ReadyAt, s.pred.DoneAt)
 		case s.pred.State.Crop == cropDiseased:
-			diseased++
+			ps.State = "diseased"
+			problems = append(problems, ps.Name+" "+strings.ToLower(ps.Crop)+" diseased")
 		case s.pred.State.Crop == cropDead:
-			dead++
+			ps.State = "dead"
+			problems = append(problems, ps.Name+" "+strings.ToLower(ps.Crop)+" dead")
 		default:
+			ps.State = "ready"
 			run.Ready++
 		}
+		run.Patches = append(run.Patches, ps)
 		// Only a growing crop tells us when it was planted; a harvestable
 		// one may just have been looked at today.
 		if s.pred.State.Crop == cropGrowing && s.pred.State.Produce != PWEEDS && s.pred.Planted >= midnight {
@@ -93,20 +123,8 @@ func summarize(run Run, ps []seenPatch, now, midnight int64) Run {
 	default:
 		run.State = "ready"
 	}
-	if diseased > 0 {
-		run.Issue = fmt.Sprintf("%d diseased", diseased)
-	}
-	if dead > 0 {
-		run.Issue = joinIssue(run.Issue, fmt.Sprintf("%d dead", dead))
-	}
+	run.Issue = strings.Join(problems, ", ")
 	return run
-}
-
-func joinIssue(a, b string) string {
-	if a == "" {
-		return b
-	}
-	return a + ", " + b
 }
 
 // Runs works out every daily run at time now.
@@ -124,23 +142,30 @@ func (t timers) Runs(now time.Time) []Run {
 }
 
 func (t timers) birdHouses(now, midnight int64) Run {
-	run := Run{Key: "birdhouses", Name: "Bird houses", Icon: "Bird_house.png", State: "unknown"}
-	for _, h := range t.BirdHouses {
+	run := Run{Key: "birdhouses", Name: "Bird houses", Icon: "Bird_house.png", State: "unknown", Patches: []PatchStatus{}}
+	for i, h := range t.BirdHouses {
 		if h.Stamp == 0 {
 			continue
 		}
 		run.Total++
+		ps := PatchStatus{Name: birdHouseSpaces[i]}
 		seeded := h.Value > 0 && h.Value%3 == 0
 		if !seeded {
-			run.Ready++ // empty or built without seeds: needs doing
+			ps.State = "empty" // nothing built, or built without seeds
+			run.Ready++
+			run.Patches = append(run.Patches, ps)
 			continue
 		}
+		ps.Crop = "Bird house"
 		done := h.Stamp + birdHouseMinutes*60
 		if done > now {
+			ps.State, ps.ReadyAt = "growing", done
 			run.ReadyAt = max(run.ReadyAt, done)
 		} else {
+			ps.State = "ready"
 			run.Ready++
 		}
+		run.Patches = append(run.Patches, ps)
 		if h.Stamp >= midnight {
 			run.DoneToday = true
 		}
@@ -157,7 +182,7 @@ func (t timers) birdHouses(now, midnight int64) Run {
 
 // contract follows the Farming Guild patch of the contracted crop's type.
 func (t timers) contract(now, midnight int64) Run {
-	run := Run{Key: "contract", Name: "Farming contract", Icon: "Seed_pack.png", State: "unknown"}
+	run := Run{Key: "contract", Name: "Farming contract", Icon: "Seed_pack.png", State: "unknown", Patches: []PatchStatus{}}
 	var crop *produceInfo
 	for i := range produces {
 		if produces[i].ItemID == t.Contract && t.Contract != 0 && produces[i].Contract > 0 {

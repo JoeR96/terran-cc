@@ -19,6 +19,7 @@ timetracking.rsprofile.BBB.10548.4774=33\:%[2]d
 timetracking.rsprofile.BBB.11062.4774=38\:%[3]d
 timetracking.rsprofile.BBB.4922.4775=38\:%[2]d
 timetracking.rsprofile.BBB.contract=267
+timetracking.rsprofile.BBB.11058.4771=28\:%[3]d
 timetracking.rsprofile.BBB.farmTickOffset=0
 timetracking.rsprofile.BBB.farmTickOffsetPrecision=64
 `
@@ -59,13 +60,23 @@ func TestRuns(t *testing.T) {
 	if h.State != "growing" || h.Total != 3 || h.Ready != 2 || !h.DoneToday || h.ReadyAt <= now.Unix() {
 		t.Fatalf("herbs %+v", h)
 	}
+	if len(h.Patches) != 3 || h.Patches[0].Name != "Ardougne" || h.Patches[0].State != "growing" || h.Patches[0].Crop != "Ranarr" {
+		t.Fatalf("herb patches %+v", h.Patches)
+	}
+	if len(bh.Patches) != 3 || bh.Patches[0].Name != "Mushroom Meadow (North)" || bh.Patches[0].State != "ready" || bh.Patches[2].State != "empty" {
+		t.Fatalf("bird house spaces %+v", bh.Patches)
+	}
 	c := runs["contract"]
 	// Seen harvestable 10 minutes ago is not the same as planted today.
 	if c.Note != "Dwarf weed" || c.Total != 1 || c.State != "ready" || c.DoneToday {
 		t.Fatalf("contract %+v", c)
 	}
-	if runs["hespori"].State != "unknown" || runs["trees"].Total != 0 {
-		t.Fatalf("unseen runs %+v %+v", runs["hespori"], runs["trees"])
+	if runs["hespori"].State != "unknown" {
+		t.Fatalf("unseen run %+v", runs["hespori"])
+	}
+	// A dead fruit tree is named in the run's issue.
+	if tr := runs["trees"]; tr.Total != 1 || tr.Patches[0].State != "dead" || tr.Issue != "Brimhaven "+strings.ToLower(tr.Patches[0].Crop)+" dead" {
+		t.Fatalf("trees %+v", tr)
 	}
 }
 
