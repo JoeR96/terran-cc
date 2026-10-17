@@ -24,6 +24,7 @@ import (
 	"terrancc/internal/config"
 	"terrancc/internal/core"
 	"terrancc/internal/events"
+	"terrancc/internal/osrs"
 	"terrancc/internal/store/sqlite"
 	"terrancc/internal/timer"
 )
@@ -96,7 +97,17 @@ func run() (err error) {
 	}
 	tm := timer.New(cfg, time.Now)
 	bus := events.NewBus()
-	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithAssistant(assistant())), ReadHeaderTimeout: 10 * time.Second}
+	ocfg := osrs.DefaultConfig()
+	if v, ok, _ := db.GetSetting(ctx, api.OSRSConfigKey); ok {
+		if err := json.Unmarshal([]byte(v), &ocfg); err != nil {
+			log.Printf("ignoring bad OSRS config: %v", err)
+			ocfg = osrs.DefaultConfig()
+		}
+	}
+	tracker := osrs.NewService(ocfg)
+	tracker.Version = api.Version
+	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithAssistant(assistant()), api.WithOSRS(tracker, "")), ReadHeaderTimeout: 10 * time.Second}
+	go tracker.Run(ctx)
 
 	go api.RunTicker(ctx, tm, bus)
 	go func() {

@@ -21,6 +21,7 @@
     { type: 'inprogress', name: 'In progress', w: 5, h: 4 },
     { type: 'inbox', name: 'Inbox', w: 4, h: 3 },
     { type: 'projects', name: 'Projects', w: 4, h: 4 },
+    { type: 'osrs', name: 'OSRS', w: 6, h: 9 },
   ]
   const title = w =>
     w.type === 'project' ? projectOf(w.project_id)?.name || 'Project' : TYPES.find(t => t.type === w.type)?.name || w.type

@@ -10,7 +10,7 @@
 
   const NAMES = {
     today: 'Today', week: 'This week', month: 'This month', anytime: 'Anytime', habits: 'Habits',
-    timer: 'Timer', inprogress: 'In progress', inbox: 'Inbox', projects: 'Projects',
+    timer: 'Timer', osrs: 'OSRS', inprogress: 'In progress', inbox: 'Inbox', projects: 'Projects',
   }
   const widget = $derived({ id: 'pop', type, project_id: projectId })
   const name = $derived(type === 'project' ? projectOf(projectId)?.name || 'Project' : NAMES[type] || type)

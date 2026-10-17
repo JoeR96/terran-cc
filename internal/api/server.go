@@ -17,12 +17,13 @@ import (
 	"terrancc/internal/assist"
 	"terrancc/internal/core"
 	"terrancc/internal/events"
+	"terrancc/internal/osrs"
 	"terrancc/internal/store"
 	"terrancc/internal/timer"
 )
 
 // Version is a var so tests can build an "older" tccd with -ldflags -X.
-var Version = "0.6.0"
+var Version = "0.7.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
@@ -35,6 +36,8 @@ type server struct {
 	home      string
 	shutdown  func()
 	assistant *assist.Client
+	osrs      *osrs.Service
+	wiki      string
 }
 
 type Option func(*server)
@@ -71,6 +74,7 @@ func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string,
 	s.timerRoutes(mux)
 	s.uiRoutes(mux)
 	s.assistRoutes(mux)
+	s.osrsRoutes(mux)
 	mux.HandleFunc("GET /api/events", s.events)
 	return cors(s.auth(mux))
 }
@@ -111,7 +115,8 @@ func (s *server) auth(next http.Handler) http.Handler {
 }
 
 func queryTokenPath(p string) bool {
-	return p == "/api/events" || (strings.HasPrefix(p, "/api/items/") && strings.Contains(p, "/attachments/"))
+	return p == "/api/events" || (strings.HasPrefix(p, "/api/items/") && strings.Contains(p, "/attachments/")) ||
+		strings.HasPrefix(p, "/api/osrs/icon/")
 }
 
 // RunTicker advances the timer every second, publishing timer.tick while it

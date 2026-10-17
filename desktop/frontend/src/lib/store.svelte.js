@@ -14,6 +14,8 @@ export const db = $state({
   timer: null,
   boards: [],
   notes: '', // the side widget scratchpad
+  osrs: null, // RuneLite runs, bank stock and skill targets
+  now: Math.floor(Date.now() / 1000), // ticks every 15s so countdowns move
   phaseEnded: 0, // bumps on timer.phase so a view can chime
 })
 
@@ -32,6 +34,9 @@ const loaders = {
   },
   async timer() {
     db.timer = await api('GET', '/api/timer')
+  },
+  async osrs() {
+    db.osrs = await api('GET', '/api/osrs').catch(() => null)
   },
   async notes() {
     db.notes = (await api('GET', '/api/ui/notes')) || ''
@@ -61,6 +66,7 @@ export async function loadAll() {
 }
 
 export function start() {
+  setInterval(() => (db.now = Math.floor(Date.now() / 1000)), 15000)
   let day = isoDate(new Date())
   // Habits and Today reset at local midnight; reload when the date changes.
   setInterval(() => {
@@ -79,6 +85,7 @@ export function start() {
         case 'habit.changed': reload('habits'); break
         case 'timer.tick': db.timer = e.data; break
         case 'timer.phase': db.timer = e.data; db.phaseEnded++; break
+        case 'osrs.changed': case 'osrs.ready': reload('osrs'); break
         case 'ui.changed': if (e.data === 'boards' || e.data === 'notes') reload(e.data); break
       }
     },
@@ -133,6 +140,10 @@ export const act = {
   remove: id => api('DELETE', `/api/items/${id}`).catch(fail),
   note: (id, text) => api('POST', `/api/items/${id}/note`, { text }).catch(fail),
   addProject: p => api('POST', '/api/projects', p).catch(fail),
+  osrsConfig: c =>
+    api('PUT', '/api/osrs/config', c)
+      .then(() => loaders.osrs())
+      .catch(fail),
   editProject: (id, p) => api('PATCH', `/api/projects/${id}`, p).catch(fail),
   timer: (action, body) =>
     api('POST', `/api/timer/${action}`, body)

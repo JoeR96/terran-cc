@@ -125,8 +125,8 @@ type snapshot struct {
 var phaseNames = map[string]string{"focus": "Focus", "short_break": "Short break", "long_break": "Long break"}
 
 // watch follows tccd's event stream: it keeps the tray tooltip on the timer
-// and chimes and raises a notification when a phase ends. It reconnects
-// forever.
+// and chimes and raises a notification when a phase ends, and raises one
+// when an OSRS run is ready. It reconnects forever.
 func (s *shell) watch(tray *application.SystemTray, n *notifications.NotificationService) {
 	for {
 		req, _ := http.NewRequest("GET", s.base+"/api/events", nil)
@@ -142,6 +142,19 @@ func (s *shell) watch(tray *application.SystemTray, n *notifications.Notificatio
 					continue
 				}
 				data, ok := strings.CutPrefix(line, "data: ")
+				if ok && event == "osrs.ready" {
+					var e struct {
+						Data struct{ Name string }
+					}
+					if json.Unmarshal([]byte(data), &e) == nil && e.Data.Name != "" {
+						if err := n.SendNotification(notifications.NotificationOptions{
+							ID: fmt.Sprintf("osrs-%d", time.Now().UnixNano()), Title: "Terran CC · OSRS", Body: e.Data.Name + " is ready.",
+						}); err != nil {
+							log.Printf("notification: %v", err)
+						}
+					}
+					continue
+				}
 				if !ok || (event != "timer.tick" && event != "timer.phase") {
 					continue
 				}

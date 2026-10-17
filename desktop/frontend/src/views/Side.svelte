@@ -10,6 +10,7 @@
   import ItemDrawer from '../components/ItemDrawer.svelte'
   import Chat from '../components/Chat.svelte'
   import Notes from '../components/Notes.svelte'
+  import OsrsView from '../components/OsrsView.svelte'
   import { route } from '../lib/route.svelte.js'
 
   // Wider than this, the widget shows habits across the top and splits the
@@ -51,6 +52,14 @@
     }
   }
   let tab = $state(read())
+  // The middle column swaps between goals + projects and the OSRS view.
+  let mid = $state((() => { try { return localStorage.getItem('tcc.side.mid') || 'goals' } catch { return 'goals' } })())
+  function setMid(t) {
+    mid = t
+    try {
+      localStorage.setItem('tcc.side.mid', t)
+    } catch {}
+  }
   function setTab(t) {
     tab = t
     try {
@@ -58,6 +67,19 @@
     } catch {}
   }
 </script>
+
+{#snippet middle()}
+  <div class="tabs">
+    <button class="ghost" class:on={mid === 'goals'} onclick={() => setMid('goals')}>Goals</button>
+    <button class="ghost" class:on={mid === 'osrs'} onclick={() => setMid('osrs')}>OSRS</button>
+  </div>
+  {#if mid === 'osrs'}
+    <OsrsView onopen={openItem} />
+  {:else}
+    <div class="part"><Goals onopen={openItem} /></div>
+    <div class="part"><ProjectTree onopen={openItem} /></div>
+  {/if}
+{/snippet}
 
 {#snippet box()}
   <div class="tabs">
@@ -101,10 +123,7 @@
       </div>
       <div class="cols three">
         <div class="col"><TodoTree onopen={openItem} /></div>
-        <div class="col">
-          <div class="part"><Goals onopen={openItem} /></div>
-          <div class="part"><ProjectTree onopen={openItem} /></div>
-        </div>
+        <div class="col">{@render middle()}</div>
         <div class="col boxcol">{@render box()}</div>
       </div>
     </div>
@@ -115,10 +134,7 @@
       <div class="cols">
         <div class="col"><TodoTree onopen={openItem} /></div>
         <div class="col right">
-          <div class="scroll">
-            <div class="part"><Goals onopen={openItem} /></div>
-            <div class="part"><ProjectTree onopen={openItem} /></div>
-          </div>
+          <div class="scroll">{@render middle()}</div>
           <div class="chatbox">{@render box()}</div>
         </div>
       </div>
@@ -128,8 +144,7 @@
       <div class="sec"><Timer compact /></div>
       <div class="sec"><Habits /></div>
       <div class="sec"><TodoTree onopen={openItem} /></div>
-      <div class="sec"><Goals onopen={openItem} /></div>
-      <div class="sec"><ProjectTree onopen={openItem} /></div>
+      <div class="sec">{@render middle()}</div>
       <div class="sec chatnarrow">{@render box()}</div>
     </div>
   {/if}

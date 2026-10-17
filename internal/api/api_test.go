@@ -21,6 +21,7 @@ import (
 	"terrancc/internal/core"
 	"terrancc/internal/events"
 	"terrancc/internal/model"
+	"terrancc/internal/osrs"
 	"terrancc/internal/store"
 	"terrancc/internal/store/sqlite"
 	"terrancc/internal/timer"
@@ -293,6 +294,58 @@ func TestAssistWithoutKey(t *testing.T) {
 	e2 := setup(t)
 	if c := e2.do(t, "POST", "/api/assist", map[string]any{"messages": []any{}}, nil); c != 503 {
 		t.Fatalf("no assistant configured: %d", c)
+	}
+}
+
+func TestOSRSRoutes(t *testing.T) {
+	icons := 0
+	wiki := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		icons++
+		if r.URL.Path != "/images/Anglerfish.png" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write([]byte("PNG"))
+	}))
+	defer wiki.Close()
+	cfg := osrs.DefaultConfig()
+	cfg.RuneLite = t.TempDir()
+	o := osrs.NewService(cfg)
+	e := setupWith(t, WithOSRS(o, wiki.URL+"/images/"))
+
+	var st osrs.Status
+	if c := e.do(t, "GET", "/api/osrs", nil, &st); c != 200 || st.Account != "big chopski" || len(st.Runs) != 7 || len(st.Stock) == 0 {
+		t.Fatalf("%d %+v", c, st)
+	}
+	var got osrs.Config
+	cfg2 := o.Config()
+	cfg2.Stock = cfg2.Stock[:1]
+	cfg2.Stock[0].Target = 123
+	if c := e.do(t, "PUT", "/api/osrs/config", cfg2, &got); c != 200 || len(got.Stock) != 1 || got.Stock[0].Target != 123 {
+		t.Fatalf("put %d %+v", c, got)
+	}
+	if v, ok, _ := e.svc.Store.GetSetting(context.Background(), "osrs.config"); !ok || !strings.Contains(v, `"target":123`) {
+		t.Fatalf("config not saved: %q", v)
+	}
+
+	// Icons load with ?token= (they're <img> tags) and are fetched once.
+	for range 2 {
+		resp, err := http.Get(e.srv.URL + "/api/osrs/icon/Anglerfish.png?token=" + tok)
+		if err != nil || resp.StatusCode != 200 {
+			t.Fatalf("icon %v %v", resp, err)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if string(b) != "PNG" {
+			t.Fatalf("icon body %q", b)
+		}
+	}
+	if icons != 1 {
+		t.Fatalf("wiki asked %d times", icons)
+	}
+	if c := e.do(t, "GET", "/api/osrs/icon/..%2Fsecret.png", nil, nil); c != 400 {
+		t.Fatalf("bad name: %d", c)
 	}
 }
 

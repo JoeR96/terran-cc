@@ -4,6 +4,7 @@
   import Timer from './Timer.svelte'
   import Habits from './Habits.svelte'
   import TodoList from './TodoList.svelte'
+  import OsrsView from './OsrsView.svelte'
 
   // One widget's contents. onproject opens a project page; onitem opens a ticket.
   let { widget, onproject = () => {}, onitem = null } = $props()
@@ -31,6 +32,8 @@
   <TodoList when="anytime" onopen={onitem} />
 {:else if widget.type === 'habits'}
   <Habits title={false} />
+{:else if widget.type === 'osrs'}
+  <OsrsView onopen={onitem} />
 {:else if widget.type === 'timer'}
   <Timer big />
 {:else if widget.type === 'inbox'}

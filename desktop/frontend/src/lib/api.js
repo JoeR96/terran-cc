@@ -38,6 +38,9 @@ export async function api(method, path, body) {
 export const fileURL = (id, name) =>
   `${c.base}/api/items/${id}/attachments/${encodeURIComponent(name)}?token=${encodeURIComponent(c.token)}`
 
+// osrsIcon is an OSRS Wiki image, fetched and cached by tccd.
+export const osrsIcon = name => `${c.base}/api/osrs/icon/${encodeURIComponent(name)}?token=${encodeURIComponent(c.token)}`
+
 export async function upload(id, file) {
   const fd = new FormData()
   fd.append('file', file, file.name || 'pasted.png')
