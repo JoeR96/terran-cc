@@ -12,13 +12,15 @@
     { ctx: 'work', name: 'Work', hz: [['today', 'Today'], ['week', 'This week'], ['month', 'This month']] },
     // OSRS keeps only Today here; its short, medium and long term goals live
     // in the OSRS tab, with their pieces and progress.
-    { ctx: 'osrs', name: 'OSRS', hz: [['today', 'Today']], note: 'Goals live in the OSRS tab' },
+    // OSRS's This week is its short-term goals; medium and long term live
+    // in the OSRS tab with their pieces and progress.
+    { ctx: 'osrs', name: 'OSRS', hz: [['today', 'Today'], ['week', 'This week']], note: 'Longer goals live in the OSRS tab' },
   ]
   const OPEN_KEY = 'tcc.todo.open'
   const SHUT_KEY = 'tcc.todo.shut'
   // All sits on top and gathers each group's to-dos by date. OSRS terms are
   // goals rather than dates, so only OSRS's Today joins in.
-  const ALL = [['today', 'Today', ['irl', 'work', 'osrs']], ['week', 'This week', ['irl', 'work']], ['month', 'This month', ['irl', 'work']]]
+  const ALL = [['today', 'Today', ['irl', 'work', 'osrs']], ['week', 'This week', ['irl', 'work', 'osrs']], ['month', 'This month', ['irl', 'work']]]
   const TAG = { irl: 'me', work: 'work', osrs: 'osrs' }
   const groupOf = ctx => GROUPS.find(g => g.ctx === ctx)
   const DEFAULT_OPEN = ['g:all', 'h:all:today', ...GROUPS.flatMap(g => [`g:${g.ctx}`, `h:${g.ctx}:today`])]
@@ -42,7 +44,13 @@
   let shut = $state(load(SHUT_KEY, []))
   const flip = (list, k) => (list.includes(k) ? list.filter(x => x !== k) : [...list, k])
   const toggleOpen = k => save(OPEN_KEY, (open = flip(open, k)))
-  const toggleShut = id => save(SHUT_KEY, (shut = flip(shut, id)))
+  // OSRS goals carry long piece lists, so they start folded and remember
+  // being opened instead.
+  let unfolded = $state(load('tcc.todo.osrsopen', []))
+  const isOsrs = id => db.items.find(i => i.id === id)?.context === 'osrs'
+  const isShut = id => (isOsrs(id) ? !unfolded.includes(id) : shut.includes(id))
+  const toggleShut = id =>
+    isOsrs(id) ? save('tcc.todo.osrsopen', (unfolded = flip(unfolded, id))) : save(SHUT_KEY, (shut = flip(shut, id)))
 
   // Drag a group row to reorder Me / Work / OSRS (kept per window). Drag a
   // to-do onto another to-do to put it in front of it (moving it to that
@@ -106,7 +114,7 @@
     adding = { ctx, when, parent }
     draft = ''
     if (!open.includes(`h:${ctx}:${when}`)) toggleOpen(`h:${ctx}:${when}`)
-    if (parent && shut.includes(parent)) toggleShut(parent)
+    if (parent && isShut(parent)) toggleShut(parent)
   }
   async function add() {
     const t = draft.trim()
@@ -115,6 +123,24 @@
     draft = ''
     await act.addItem({ title: t, when: a.when, context: a.ctx, kind: 'todo', ...(a.parent ? { parent_id: a.parent } : {}) })
   }
+  // Adding from All: the chip picks which group the to-do belongs to.
+  let allAdding = $state(null) // {when, ctx}
+  let allDraft = $state('')
+  function startAllAdd(w) {
+    allAdding = { when: w, ctx: 'irl' }
+    allDraft = ''
+    if (!open.includes(`h:all:${w}`)) toggleOpen(`h:all:${w}`)
+  }
+  function cycleCtx(ctxs) {
+    allAdding.ctx = ctxs[(ctxs.indexOf(allAdding.ctx) + 1) % ctxs.length]
+  }
+  async function addAll() {
+    const t = allDraft.trim()
+    if (!t) return (allAdding = null)
+    allDraft = ''
+    await act.addItem({ title: t, when: allAdding.when, context: allAdding.ctx, kind: 'todo' })
+  }
+
   function rename(it) {
     const t = editDraft.trim()
     editing = null
@@ -156,7 +182,7 @@
     ondragend={() => (drag = over = null)}
   >
     {#if n.children.length}
-      <button class="ghost caret" onclick={() => toggleShut(it.id)}>{shut.includes(it.id) ? '▸' : '▾'}</button>
+      <button class="ghost caret" onclick={() => toggleShut(it.id)}>{isShut(it.id) ? '▸' : '▾'}</button>
     {:else}
       <span class="caret"></span>
     {/if}
@@ -175,7 +201,7 @@
     {:else}
       {#if tag}<span class="ctag {g.ctx}">{TAG[g.ctx]}</span>{/if}
       <span class="title" role="button" tabindex="0" title="Click to rename" onclick={() => ((editing = it.id), (editDraft = it.title))} onkeydown={() => {}}>{it.title}</span>
-      {#if n.children.length && shut.includes(it.id)}<span class="faint n">{n.open}</span>{/if}
+      {#if n.children.length && isShut(it.id)}<span class="faint n">{n.open}</span>{/if}
       <span class="acts">
         <button class="ghost" title="Add a sub to-do" onclick={() => startAdd(g.ctx, when, it.id)}>+</button>
         {#if onopen}<button class="ghost" title="Open" onclick={() => onopen(it)}>↗</button>{/if}
@@ -183,7 +209,7 @@
       </span>
     {/if}
   </div>
-  {#if !shut.includes(it.id)}
+  {#if !isShut(it.id)}
     {#each n.children as c (c.item.id)}{@render todo(c, g, when, depth + 1, n.children)}{/each}
     {#if isAdding(g.ctx, when, it.id)}{@render addRow(depth + 1)}{/if}
   {/if}
@@ -200,9 +226,27 @@
       <button class="ghost node" onclick={() => toggleOpen(hk)}>
         <span class="caret">{open.includes(hk) ? '▾' : '▸'}</span>{label}<span class="faint n">{openIn(allNodes[w])}</span>
       </button>
+      <button class="ghost plus" title="Add a to-do" onclick={() => startAllAdd(w)}>+</button>
     </div>
     {#if open.includes(hk)}
       {#each allNodes[w] as n (n.item.id)}{@render todo(n, groupOf(n.item.context || 'irl'), w, 2, trees[`${n.item.context || 'irl'}:${w}`], true)}{/each}
+      {#if allAdding?.when === w}
+        <div class="row" style="padding-left:44px">
+          <button class="ghost ctag {allAdding.ctx}" title="Click to switch between me, work and osrs" onmousedown={e => e.preventDefault()} onclick={() => cycleCtx(ALL.find(a => a[0] === w)[2])}>{TAG[allAdding.ctx]}</button>
+          <input
+            placeholder="New to-do, Enter to add"
+            bind:value={allDraft}
+            onkeydown={e => {
+              if (e.key === 'Enter') addAll()
+              if (e.key === 'Escape') allAdding = null
+            }}
+            onblur={() => {
+              if (!allDraft.trim()) allAdding = null
+            }}
+            use:focus
+          />
+        </div>
+      {/if}
     {/if}
   {/each}
 {/if}

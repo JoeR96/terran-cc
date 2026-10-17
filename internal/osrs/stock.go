@@ -39,8 +39,9 @@ func DefaultStock() []StockItem {
 	}
 	return []StockItem{
 		item("anglerfish", "Anglerfish", "Anglerfish.png", []string{"Anglerfish"}, false, []string{"Raw anglerfish"}, 20000),
-		item("amethyst-arrowtips", "Amethyst arrowtips", "Amethyst_arrowtips.png", []string{"Amethyst arrowtips"}, false, nil, 20000),
-		item("amethyst-darts", "Amethyst darts", "Amethyst_dart.png", []string{"Amethyst dart"}, false, nil, 5000),
+		// Finished ammo is what counts; the tips beside it are the raw stage.
+		item("amethyst-arrows", "Amethyst arrows", "Amethyst_arrow_5.png", []string{"Amethyst arrow"}, false, []string{"Amethyst arrowtips"}, 20000),
+		item("amethyst-darts", "Amethyst darts", "Amethyst_dart.png", []string{"Amethyst dart"}, false, []string{"Amethyst dart tip"}, 5000),
 		item("house-tabs", "House teleports", "Teleport_to_house_(tablet).png", []string{"Teleport to house"}, false, nil, 1000),
 		item("prayer", "Prayer potion (doses)", "Prayer_potion(4).png", []string{"Prayer potion"}, true, nil, 1200),
 		item("restore", "Super restore (doses)", "Super_restore(4).png", []string{"Super restore"}, true, nil, 1200),
