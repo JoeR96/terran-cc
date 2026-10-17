@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { todos, goals, buildTree, ACTIVE } from './lists.js'
+import { todos, todoTree, goals, buildTree, ACTIVE } from './lists.js'
 
 const TODAY = '2026-10-17'
 const item = (id, o = {}) => ({ id, title: 't' + id, kind: 'task', project_id: null, parent_id: null, status: 'backlog', when: 'anytime', context: 'irl', done_at: null, ...o })
@@ -78,5 +78,28 @@ describe('buildTree', () => {
   it('keeps a ticket whose parent is not a feature under the project', () => {
     const t = buildTree(projects, [item(20, { project_id: 1, parent_id: 99, status: 'review' })], ACTIVE)
     expect(t[0].children.map(c => c.item.id)).toEqual([20])
+  })
+})
+
+describe('todoTree', () => {
+  it('nests sub to-dos under their parent and keeps contexts apart', () => {
+    const items = [
+      item(1, { context: 'osrs', when: 'week', title: 'Prep for raids S4' }),
+      item(2, { context: 'osrs', when: 'week', parent_id: 1, title: 'Get inquisitor mace' }),
+      item(3, { context: 'osrs', when: 'week', parent_id: 2 }),
+      item(4, { context: 'osrs', when: 'week', parent_id: 1, status: 'done', done_at: '2026-10-01T08:00:00Z' }), // old, hidden
+      item(5, { context: 'irl', when: 'week' }),
+      item(6, { when: 'week', context: '' }), // no context counts as me
+    ]
+    const t = todoTree(items, 'week', 'osrs', TODAY)
+    expect(t.map(n => n.item.id)).toEqual([1])
+    expect(t[0].children.map(n => n.item.id)).toEqual([2])
+    expect(t[0].children[0].children.map(n => n.item.id)).toEqual([3])
+    expect(t[0].open).toBe(2)
+    expect(todoTree(items, 'week', 'irl', TODAY).map(n => n.item.id)).toEqual([5, 6])
+  })
+  it('shows a sub to-do at the top when its parent is not in the list', () => {
+    const items = [item(1, { context: 'osrs', when: 'month' }), item(2, { context: 'osrs', when: 'week', parent_id: 1 })]
+    expect(todoTree(items, 'week', 'osrs', TODAY).map(n => n.item.id)).toEqual([2])
   })
 })

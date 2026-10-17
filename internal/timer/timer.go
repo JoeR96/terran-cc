@@ -81,6 +81,7 @@ type Snapshot struct {
 	Total     time.Duration // full length of the current phase or countdown
 	Cycle     int           // completed focus sessions since the last Stop
 	ItemID    *int64
+	Label     string // what a lock-in countdown is for
 	Config    Config
 }
 
@@ -92,8 +93,9 @@ func (s Snapshot) MarshalJSON() ([]byte, error) {
 		Total     int    `json:"total_s"`
 		Cycle     int    `json:"cycle"`
 		ItemID    *int64 `json:"item_id"`
+		Label     string `json:"label"`
 		Config    Config `json:"config"`
-	}{s.Phase, s.State, int((s.Remaining + time.Second - 1) / time.Second), int(s.Total / time.Second), s.Cycle, s.ItemID, s.Config})
+	}{s.Phase, s.State, int((s.Remaining + time.Second - 1) / time.Second), int(s.Total / time.Second), s.Cycle, s.ItemID, s.Label, s.Config})
 }
 
 type Timer struct {
@@ -107,6 +109,7 @@ type Timer struct {
 	cycle     int
 	item      *int64
 	single    time.Duration // non-zero while a one-off countdown runs
+	label     string
 }
 
 func New(cfg Config, now func() time.Time) *Timer {
@@ -140,7 +143,7 @@ func (t *Timer) snap() Snapshot {
 	if t.single > 0 {
 		total = t.single
 	}
-	return Snapshot{Phase: t.phase, State: t.state, Remaining: t.left(), Total: total, Cycle: t.cycle, ItemID: t.item, Config: t.cfg}
+	return Snapshot{Phase: t.phase, State: t.state, Remaining: t.left(), Total: total, Cycle: t.cycle, ItemID: t.item, Label: t.label, Config: t.cfg}
 }
 
 func (t *Timer) run() {
@@ -170,10 +173,11 @@ func (t *Timer) Start(itemID *int64) Snapshot {
 }
 
 // Countdown starts a one-off timer of length d, replacing whatever was
-// running. When it ends the timer goes idle with no break after it.
-func (t *Timer) Countdown(d time.Duration) Snapshot {
+// running. When it ends the timer goes idle with no break after it. label
+// names the task it is for ("" for none).
+func (t *Timer) Countdown(d time.Duration, label string) Snapshot {
 	return t.locked(func() {
-		t.phase, t.item, t.single, t.remaining = Focus, nil, d, d
+		t.phase, t.item, t.single, t.remaining, t.label = Focus, nil, d, d, label
 		t.run()
 	})
 }
@@ -208,7 +212,7 @@ func (t *Timer) Toggle() Snapshot {
 // next ends the current phase and moves to the following one.
 func (t *Timer) next() {
 	if t.single > 0 {
-		t.single = 0
+		t.single, t.label = 0, ""
 		t.remaining, t.state = t.duration(Focus), Idle
 		return
 	}
@@ -231,7 +235,7 @@ func (t *Timer) Skip() Snapshot { return t.locked(t.next) }
 
 func (t *Timer) Stop() Snapshot {
 	return t.locked(func() {
-		t.phase, t.state, t.cycle, t.item, t.single = Focus, Idle, 0, nil, 0
+		t.phase, t.state, t.cycle, t.item, t.single, t.label = Focus, Idle, 0, nil, 0, ""
 		t.remaining = t.duration(Focus)
 	})
 }

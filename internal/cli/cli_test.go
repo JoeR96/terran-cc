@@ -224,7 +224,7 @@ func TestTimerAndStatus(t *testing.T) {
 	if out := h.ok("timer", "config", "--focus", "50"); !strings.Contains(out, "50") {
 		t.Fatalf("timer config: %q", out)
 	}
-	if out := h.ok("timer", "start", "--min", "10"); !strings.Contains(out, "10:00") {
+	if out := h.ok("timer", "start", "--min", "10", "--task", "Raid prep"); !strings.Contains(out, "10:00") {
 		t.Fatalf("timer start --min: %q", out)
 	}
 	out := h.ok("status")

@@ -18,7 +18,7 @@ func TestEnumsValid(t *testing.T) {
 			t.Errorf("when %q should be valid", w)
 		}
 	}
-	for _, c := range []Context{ContextWork, ContextIRL} {
+	for _, c := range []Context{ContextWork, ContextIRL, ContextOSRS} {
 		if !c.Valid() {
 			t.Errorf("context %q should be valid", c)
 		}

@@ -10,12 +10,26 @@ const doneOn = (it, today) => it.status === 'done' && it.done_at && isoDate(new 
 const live = (it, today) => it.status !== 'someday' && (it.status !== 'done' || doneOn(it, today))
 const openFirst = (a, b) => (a.status === 'done') - (b.status === 'done') || a.id - b.id
 
+const ctxOf = it => it.context || 'irl'
+
 // todos lists personal to-dos (no project) for one "when" and one context:
-// 'work', or 'irl' for everything that isn't work.
+// 'irl', 'work' or 'osrs'. A to-do with no context counts as irl.
 export function todos(items, when, context, today = isoDate(new Date())) {
-  return items
-    .filter(it => !it.project_id && it.when === when && (it.context === 'work') === (context === 'work') && live(it, today))
-    .sort(openFirst)
+  return items.filter(it => !it.project_id && it.when === when && ctxOf(it) === context && live(it, today)).sort(openFirst)
+}
+
+// todoTree is todos() with sub to-dos nested under their parents:
+// [{item, open, children}], open counting the open to-dos below. A sub to-do
+// whose parent is not in the same list sits at the top level.
+export function todoTree(items, when, context, today = isoDate(new Date())) {
+  const list = todos(items, when, context, today)
+  const ids = new Set(list.map(it => it.id))
+  const node = it => {
+    const children = list.filter(c => c.parent_id === it.id).map(node)
+    const open = children.reduce((n, c) => n + c.open + (c.item.status !== 'done'), 0)
+    return { item: it, open, children }
+  }
+  return list.filter(it => !it.parent_id || !ids.has(it.parent_id)).map(node)
 }
 
 // goals lists project tickets set for today, this week or this month.

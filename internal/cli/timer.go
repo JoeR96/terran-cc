@@ -38,6 +38,7 @@ func (a *app) timerCmd() *cobra.Command {
 	}
 	var item string
 	var minutes float64
+	var task string
 	start := &cobra.Command{
 		Use:   "start",
 		Short: "Start the current phase, optionally focused on an item, or a one-off countdown with --min",
@@ -46,6 +47,7 @@ func (a *app) timerCmd() *cobra.Command {
 			body := map[string]any{}
 			if minutes > 0 {
 				body["minutes"] = minutes
+				body["label"] = task
 			}
 			if item != "" {
 				id, err := parseID(item)
@@ -63,6 +65,7 @@ func (a *app) timerCmd() *cobra.Command {
 	}
 	start.Flags().StringVar(&item, "item", "", "item id to focus on")
 	start.Flags().Float64Var(&minutes, "min", 0, "run a one-off countdown of this many minutes (no break after)")
+	start.Flags().StringVar(&task, "task", "", "with --min: lock in on this task (the widget shows only the time and the task)")
 	cmd.AddCommand(start)
 
 	for name, short := range map[string]string{

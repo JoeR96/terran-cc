@@ -227,8 +227,8 @@ func TestTimerToggleHTTP(t *testing.T) {
 func TestTimerCountdownHTTP(t *testing.T) {
 	e := setup(t)
 	var s map[string]any
-	e.do(t, "POST", "/api/timer/start", map[string]any{"minutes": 10}, &s)
-	if s["state"] != "running" || s["total_s"] != float64(600) || s["remaining_s"] != float64(600) {
+	e.do(t, "POST", "/api/timer/start", map[string]any{"minutes": 10, "label": " Get inquisitor mace "}, &s)
+	if s["state"] != "running" || s["total_s"] != float64(600) || s["remaining_s"] != float64(600) || s["label"] != "Get inquisitor mace" {
 		t.Fatalf("%v", s)
 	}
 	for _, m := range []float64{-1, 0.0001, 24 * 60} {

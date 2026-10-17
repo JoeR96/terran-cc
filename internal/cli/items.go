@@ -132,7 +132,7 @@ func (a *app) addCmd(todo bool) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&when, "when", "", "today|week|month|anytime")
-	f.StringVar(&ctx, "context", "", "work|irl")
+	f.StringVar(&ctx, "context", "", "work|irl|osrs")
 	if todo {
 		cmd.Use, cmd.Short = "todo <title>", "Add a personal to-do (for today unless --when says otherwise)"
 		f.Lookup("when").DefValue, when = "today", "today"
@@ -187,7 +187,7 @@ func (a *app) lsCmd() *cobra.Command {
 	f.StringVar(&status, "status", "", "comma-separated statuses")
 	f.StringVar(&when, "when", "", "comma-separated: today,week,month,anytime")
 	f.StringVar(&kind, "kind", "", "comma-separated kinds")
-	f.StringVar(&ctx, "context", "", "work|irl")
+	f.StringVar(&ctx, "context", "", "work|irl|osrs")
 	f.StringVarP(&query, "query", "q", "", "title contains")
 	f.BoolVar(&all, "all", false, "include done and someday")
 	return cmd
@@ -386,7 +386,7 @@ func (a *app) editCmd() *cobra.Command {
 	for _, f := range [][2]string{
 		{"title", ""}, {"notes", "replace the notes"}, {"kind", "todo|bug|task|feature|idea"},
 		{"status", "inbox|backlog|up_next|in_progress|review|done|someday"}, {"when", "today|week|month|anytime"},
-		{"context", "work|irl"}, {"why-first", "why this goes first in Up next"},
+		{"context", "work|irl|osrs"}, {"why-first", "why this goes first in Up next"},
 		{"depends-on", "comma-separated ids; empty clears"}, {"project", "slug or id; empty makes it personal"},
 		{"parent", "parent id; empty clears"}, {"branch", ""}, {"worktree", ""},
 		{"model", "model for dispatch, e.g. \"Opus 5.5\" or \"Plan: Fable 5.1 high. Build: Sonnet 5.5 medium.\""},

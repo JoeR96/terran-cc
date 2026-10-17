@@ -2,6 +2,7 @@ package timer
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -165,7 +166,7 @@ func TestSnapshotJSON(t *testing.T) {
 func TestCountdownRunsOnceThenIdles(t *testing.T) {
 	tm, f := newT(DefaultConfig())
 	tm.Start(id(3))
-	s := tm.Countdown(10 * time.Minute)
+	s := tm.Countdown(10*time.Minute, "")
 	if s.State != Running || s.Remaining != 10*time.Minute || s.Total != 10*time.Minute || s.ItemID != nil {
 		t.Fatalf("start: %+v", s)
 	}
@@ -183,12 +184,31 @@ func TestCountdownRunsOnceThenIdles(t *testing.T) {
 
 func TestCountdownReplacesRunningTimer(t *testing.T) {
 	tm, f := newT(DefaultConfig())
-	tm.Countdown(45 * time.Minute)
+	tm.Countdown(45*time.Minute, "")
 	f.add(5 * time.Minute)
-	if s := tm.Countdown(5 * time.Minute); s.State != Running || s.Remaining != 5*time.Minute {
+	if s := tm.Countdown(5*time.Minute, ""); s.State != Running || s.Remaining != 5*time.Minute {
 		t.Fatalf("%+v", s)
 	}
 	if s := tm.Pause(); s.State != Paused || s.Total != 5*time.Minute {
 		t.Fatalf("%+v", s)
+	}
+}
+
+// A lock-in countdown carries the task it is for until it ends or stops.
+func TestCountdownLabel(t *testing.T) {
+	tm, f := newT(DefaultConfig())
+	if s := tm.Countdown(25*time.Minute, "Prep for raids"); s.Label != "Prep for raids" {
+		t.Fatalf("%+v", s)
+	}
+	if b, _ := json.Marshal(tm.Snapshot()); !strings.Contains(string(b), `"label":"Prep for raids"`) {
+		t.Fatalf("json: %s", b)
+	}
+	f.add(25 * time.Minute)
+	if s, _ := tm.Advance(); s.Label != "" {
+		t.Fatalf("label kept after the end: %+v", s)
+	}
+	tm.Countdown(5*time.Minute, "x")
+	if s := tm.Stop(); s.Label != "" {
+		t.Fatalf("label kept after stop: %+v", s)
 	}
 }

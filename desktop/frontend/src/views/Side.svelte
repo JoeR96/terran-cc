@@ -1,67 +1,34 @@
 <script>
   import { db } from '../lib/store.svelte.js'
   import { shell, conn } from '../lib/api.js'
-  import { fitSections } from '../lib/fit.js'
-  import { dayLabel } from '../lib/format.js'
-  import { todos, goals, buildTree, ACTIVE } from '../lib/lists.js'
+  import { dayLabel, mmss } from '../lib/format.js'
   import Timer from '../components/Timer.svelte'
   import Habits from '../components/Habits.svelte'
-  import TodoList from '../components/TodoList.svelte'
+  import TodoTree from '../components/TodoTree.svelte'
   import Goals from '../components/Goals.svelte'
   import ProjectTree from '../components/ProjectTree.svelte'
   import ItemDrawer from '../components/ItemDrawer.svelte'
   import { route } from '../lib/route.svelte.js'
 
   // Wider than this, the widget shows habits across the top and splits the
-  // rest into to-dos (left) and goals + projects (right).
+  // rest into to-dos (left) and goals + projects (right). Narrower, it all
+  // stacks in one scrolling column; the trees fold to save space.
   const WIDE = 560
-  const FOLD_H = 28
-  const open = list => list.filter(it => it.status !== 'done').length
-  // Every section the narrow widget can show, in order. todo sections carry
-  // when + context; the rest are goals and the project tree.
-  const secs = [
-    { key: 'today', label: 'Today', title: 'Today · me', when: 'today', context: 'irl' },
-    { key: 'todayw', label: 'Work', title: 'Today · work', when: 'today', context: 'work' },
-    { key: 'goals', label: 'Goals' },
-    { key: 'weekw', label: 'Week · work', title: 'This week · work', when: 'week', context: 'work' },
-    { key: 'week', label: 'Week · me', title: 'This week · me', when: 'week', context: 'irl' },
-    { key: 'month', label: 'Month · me', title: 'This month · me', when: 'month', context: 'irl' },
-    { key: 'monthw', label: 'Month · work', title: 'This month · work', when: 'month', context: 'work' },
-    { key: 'tree', label: 'Projects' },
-  ]
-  const byKey = k => secs.find(s => s.key === k)
-  const count = s =>
-    s.when ? open(todos(db.items, s.when, s.context)) : s.key === 'goals' ? open(goals(db.items)) : buildTree(db.projects, db.items, ACTIVE).reduce((n, p) => n + p.count, 0)
-  // In the wide layout these fold into one line under the left column.
-  const leftMain = ['today', 'todayw', 'weekw']
-  const leftFold = ['week', 'month', 'monthw']
 
   let width = $state(0)
-  let bodyH = $state(0)
-  let heights = $state({})
-  let expanded = $state([])
   let menu = $state(false)
   let drawer = $state(null)
   let onTop = $state(route.query.get('top') !== '0')
   const wide = $derived(width >= WIDE)
 
-  const fit = $derived(
-    fitSections(
-      [
-        { key: 'timer', h: heights.timer || 0, fixed: true },
-        { key: 'habits', h: heights.habits || 0, fixed: true },
-        ...secs.map(s => ({ key: s.key, h: heights[s.key] || 0 })),
-      ],
-      bodyH,
-      FOLD_H,
-      expanded,
-    ),
-  )
-  const isShown = k => fit.shown.includes(k)
+  // A lock-in countdown takes over the widget until it ends or is clicked.
+  let dismissed = $state(false)
+  const t = $derived(db.timer)
+  const locking = $derived(!!t?.label && t.state !== 'idle')
+  $effect(() => {
+    if (!locking) dismissed = false
+  })
 
-  function toggleExpand(k) {
-    expanded = expanded.includes(k) ? expanded.filter(x => x !== k) : [...expanded, k]
-  }
   function setTop() {
     onTop = !onTop
     shell('top', { on: onTop })
@@ -69,26 +36,6 @@
   }
   const openItem = it => (drawer = it.id)
 </script>
-
-{#snippet section(s)}
-  {#if s.when}
-    <TodoList when={s.when} context={s.context} title={s.title} limit={s.key === 'today' || s.key === 'todayw' ? 0 : 8} onopen={openItem} />
-  {:else if s.key === 'goals'}
-    <Goals onopen={openItem} />
-  {:else}
-    <ProjectTree onopen={openItem} />
-  {/if}
-{/snippet}
-
-{#snippet foldLine(keys)}
-  <div class="collapsed">
-    ▸
-    {#each keys as k, i (k)}
-      {#if i} · {/if}
-      <button class="ghost" onclick={() => toggleExpand(k)}>{byKey(k).label} ({count(byKey(k))})</button>
-    {/each}
-  </div>
-{/snippet}
 
 <div class="sw" bind:clientWidth={width}>
   <div class="hd drag">
@@ -110,42 +57,31 @@
     </div>
   {/if}
 
-  {#if wide}
+  {#if locking && !dismissed}
+    <button class="lock" title="Click to show the whole widget" onclick={() => (dismissed = true)}>
+      <span class="time" class:paused={t.state === 'paused'}>{mmss(t.remaining_s)}</span>
+      <span class="task">{t.label}</span>
+      <span class="bar"><i style="width:{t.total_s ? (100 * (t.total_s - t.remaining_s)) / t.total_s : 0}%"></i></span>
+    </button>
+  {:else if wide}
     <div class="body wide">
       <div class="sec"><Timer /></div>
       <div class="sec"><Habits wide /></div>
       <div class="cols">
+        <div class="col"><TodoTree onopen={openItem} /></div>
         <div class="col">
-          {#each leftMain as k (k)}<div class="part">{@render section(byKey(k))}</div>{/each}
-          {#each leftFold.filter(k => expanded.includes(k)) as k (k)}
-            <div class="part exp">
-              <button class="ghost fold" title="Fold" onclick={() => toggleExpand(k)}>▾</button>
-              {@render section(byKey(k))}
-            </div>
-          {/each}
-          {#if leftFold.some(k => !expanded.includes(k))}{@render foldLine(leftFold.filter(k => !expanded.includes(k)))}{/if}
-        </div>
-        <div class="col">
-          <div class="part">{@render section(byKey('goals'))}</div>
-          <div class="part">{@render section(byKey('tree'))}</div>
+          <div class="part"><Goals onopen={openItem} /></div>
+          <div class="part"><ProjectTree onopen={openItem} /></div>
         </div>
       </div>
     </div>
   {:else}
-    <div class="body" bind:clientHeight={bodyH}>
-      <div class="sec" bind:offsetHeight={heights.timer}><Timer compact /></div>
-      <div class="sec" bind:offsetHeight={heights.habits}><Habits /></div>
-      {#each secs as s (s.key)}
-        <div class="sec" class:measure={!isShown(s.key)} bind:offsetHeight={heights[s.key]}>
-          <div class="exp">
-            {#if expanded.includes(s.key)}
-              <button class="ghost fold" title="Fold" onclick={() => toggleExpand(s.key)}>▾</button>
-            {/if}
-            {@render section(s)}
-          </div>
-        </div>
-      {/each}
-      {#if fit.folded.length}{@render foldLine(fit.folded)}{/if}
+    <div class="body">
+      <div class="sec"><Timer compact /></div>
+      <div class="sec"><Habits /></div>
+      <div class="sec"><TodoTree onopen={openItem} /></div>
+      <div class="sec"><Goals onopen={openItem} /></div>
+      <div class="sec"><ProjectTree onopen={openItem} /></div>
     </div>
   {/if}
 </div>
@@ -158,19 +94,19 @@
   .btns button { padding: 0 6px; }
   .menu { display: flex; flex-direction: column; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 4px; }
   .menu button { text-align: left; color: var(--text); }
-  .body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; }
+  .body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
   .body.wide { display: flex; flex-direction: column; overflow: hidden; }
   .wide .sec { flex: none; }
   .sec { padding: 8px 10px; border-bottom: 1px solid var(--line); }
-  .sec.measure { position: absolute; visibility: hidden; left: 0; right: 0; pointer-events: none; }
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 10px; }
-  .col { min-height: 0; overflow-y: auto; background: var(--bg); border-radius: 7px; padding: 6px 10px; }
-  .part { padding: 4px 0 8px; }
+  .col { min-height: 0; overflow-y: auto; background: var(--bg); border-radius: 7px; padding: 8px 10px; }
+  .part { padding: 0 0 8px; }
   .part + .part { border-top: 1px solid var(--line); padding-top: 8px; }
-  .exp { position: relative; }
-  .fold { position: absolute; right: -6px; top: -4px; font-size: 10px; }
-  .part.exp .fold { top: 2px; }
-  .collapsed { color: var(--faint); padding: 5px 10px; font-size: 11px; }
-  .col .collapsed { padding: 6px 0 0; border-top: 1px solid var(--line); }
-  .collapsed button { color: var(--muted); padding: 0 2px; }
+  .lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: var(--panel); border-radius: 0; padding: 16px; }
+  .lock:hover { background: var(--panel); }
+  .lock .time { font-size: clamp(40px, 16vw, 140px); font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+  .lock .time.paused { color: var(--muted); }
+  .lock .task { font-size: clamp(14px, 3.5vw, 28px); color: var(--text); text-align: center; max-width: 90%; }
+  .lock .bar { width: min(80%, 600px); height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .lock .bar i { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
 </style>
