@@ -197,7 +197,7 @@ func TestHabitLogHTTP(t *testing.T) {
 		Habits []model.HabitDay `json:"habits"`
 	}
 	e.do(t, "GET", "/api/habits", nil, &day)
-	if len(day.Habits) != 4 || day.Habits[1].Value != 750 || day.Date == "" {
+	if len(day.Habits) != 5 || day.Habits[1].Value != 750 || day.Date == "" {
 		t.Fatalf("%+v", day)
 	}
 	var m map[string]string
@@ -221,6 +221,20 @@ func TestTimerToggleHTTP(t *testing.T) {
 	v, ok, _ := e.svc.Store.GetSetting(context.Background(), "timer.config")
 	if !ok || !strings.Contains(v, `"focus_min":50`) {
 		t.Fatalf("config not persisted: %q", v)
+	}
+}
+
+func TestTimerCountdownHTTP(t *testing.T) {
+	e := setup(t)
+	var s map[string]any
+	e.do(t, "POST", "/api/timer/start", map[string]any{"minutes": 10}, &s)
+	if s["state"] != "running" || s["total_s"] != float64(600) || s["remaining_s"] != float64(600) {
+		t.Fatalf("%v", s)
+	}
+	for _, m := range []float64{-1, 0.0001, 24 * 60} {
+		if c := e.do(t, "POST", "/api/timer/start", map[string]any{"minutes": m}, nil); c != 400 {
+			t.Errorf("minutes %v: got %d, want 400", m, c)
+		}
 	}
 }
 

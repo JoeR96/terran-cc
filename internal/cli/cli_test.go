@@ -224,6 +224,9 @@ func TestTimerAndStatus(t *testing.T) {
 	if out := h.ok("timer", "config", "--focus", "50"); !strings.Contains(out, "50") {
 		t.Fatalf("timer config: %q", out)
 	}
+	if out := h.ok("timer", "start", "--min", "10"); !strings.Contains(out, "10:00") {
+		t.Fatalf("timer start --min: %q", out)
+	}
 	out := h.ok("status")
 	for _, want := range []string{"Walks 0/2", "Water 0/3000 ml", "Fix stairs", "streak"} {
 		if !strings.Contains(out, want) {

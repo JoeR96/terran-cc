@@ -125,7 +125,8 @@ type snapshot struct {
 var phaseNames = map[string]string{"focus": "Focus", "short_break": "Short break", "long_break": "Long break"}
 
 // watch follows tccd's event stream: it keeps the tray tooltip on the timer
-// and raises a notification when a phase ends. It reconnects forever.
+// and chimes and raises a notification when a phase ends. It reconnects
+// forever.
 func (s *shell) watch(tray *application.SystemTray, n *notifications.NotificationService) {
 	for {
 		req, _ := http.NewRequest("GET", s.base+"/api/events", nil)
@@ -156,7 +157,8 @@ func (s *shell) watch(tray *application.SystemTray, n *notifications.Notificatio
 						map[bool]string{true: " (paused)"}[t.State == "paused"]))
 				}
 				if event == "timer.phase" {
-					body := "Time to focus."
+					playChime()
+					body := "Time's up."
 					if t.Phase != "focus" {
 						body = "Focus done. Take a " + strings.ToLower(phaseNames[t.Phase]) + "."
 					}

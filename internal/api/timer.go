@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"terrancc/internal/events"
 	"terrancc/internal/timer"
@@ -18,10 +19,19 @@ func (s *server) timerRoutes(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("POST /api/timer/start", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			ItemID *int64 `json:"item_id"`
+			ItemID  *int64   `json:"item_id"`
+			Minutes *float64 `json:"minutes"` // a one-off countdown instead of the pomodoro cycle
 		}
 		if err := decode(r, &body); err != nil {
 			writeErr(w, err)
+			return
+		}
+		if body.Minutes != nil {
+			if m := *body.Minutes; m < 1 || m > 12*60 {
+				writeErr(w, badRequest("minutes must be between 1 and 720"))
+				return
+			}
+			reply(w, s.timer.Countdown(time.Duration(*body.Minutes*float64(time.Minute))))
 			return
 		}
 		if body.ItemID != nil {

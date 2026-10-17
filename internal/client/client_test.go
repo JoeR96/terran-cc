@@ -120,7 +120,7 @@ func TestEnsureStartsDaemon(t *testing.T) {
 		t.Fatal("too slow")
 	}
 	day, err := c.Habits("")
-	if err != nil || len(day.Habits) != 4 {
+	if err != nil || len(day.Habits) != 5 {
 		t.Fatalf("seeded habits: %+v %v", day, err)
 	}
 	// A second call reuses the running daemon.

@@ -159,3 +159,36 @@ func TestSnapshotJSON(t *testing.T) {
 		t.Fatalf("%+v %v", back, err)
 	}
 }
+
+// A countdown started with a chosen length runs once, then goes idle: no
+// break follows and no cycle is counted.
+func TestCountdownRunsOnceThenIdles(t *testing.T) {
+	tm, f := newT(DefaultConfig())
+	tm.Start(id(3))
+	s := tm.Countdown(10 * time.Minute)
+	if s.State != Running || s.Remaining != 10*time.Minute || s.Total != 10*time.Minute || s.ItemID != nil {
+		t.Fatalf("start: %+v", s)
+	}
+	f.add(10 * time.Minute)
+	s, ended := tm.Advance()
+	if !ended || s.State != Idle || s.Phase != Focus || s.Cycle != 0 {
+		t.Fatalf("end: %v %+v", ended, s)
+	}
+	tm.Start(nil)
+	f.add(25*time.Minute + time.Second)
+	if s, _ := tm.Advance(); s.Phase != ShortBreak {
+		t.Fatalf("a plain start after a countdown should be a normal pomodoro: %+v", s)
+	}
+}
+
+func TestCountdownReplacesRunningTimer(t *testing.T) {
+	tm, f := newT(DefaultConfig())
+	tm.Countdown(45 * time.Minute)
+	f.add(5 * time.Minute)
+	if s := tm.Countdown(5 * time.Minute); s.State != Running || s.Remaining != 5*time.Minute {
+		t.Fatalf("%+v", s)
+	}
+	if s := tm.Pause(); s.State != Paused || s.Total != 5*time.Minute {
+		t.Fatalf("%+v", s)
+	}
+}

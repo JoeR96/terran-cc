@@ -68,9 +68,6 @@
       </span>
       <span class="acts">
         {#if it.context === 'work'}<span class="ctx" title="Work">W</span>{/if}
-        {#if it.status !== 'done'}
-          <button class="ghost" title="Focus the timer on this" onclick={() => act.timer('start', { item_id: it.id })}>◷</button>
-        {/if}
         {#if onopen}<button class="ghost" title="Open" onclick={() => onopen(it)}>↗</button>{/if}
         <button class="ghost" title="Delete" onclick={() => act.remove(it.id)}>✕</button>
       </span>

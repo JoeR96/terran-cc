@@ -172,7 +172,6 @@
         <button onclick={() => act.reopen(id)}>Reopen</button>
       {:else}
         <button class="primary" onclick={() => act.done(id)}>{it.status === 'review' ? 'Sign off · Done' : 'Done'}</button>
-        <button onclick={() => act.timer('start', { item_id: id })}>◷ Focus</button>
       {/if}
       <span style="flex:1"></span>
       <button class="ghost danger" onclick={del}>Delete</button>

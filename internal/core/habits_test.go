@@ -41,7 +41,7 @@ func fillDay(t *testing.T, s *Service, hs map[string]model.Habit) {
 
 func TestSeedOnce(t *testing.T) {
 	s, _, hs := seeded(t)
-	if len(hs) != 4 {
+	if len(hs) != 5 {
 		t.Fatalf("seeded %d habits", len(hs))
 	}
 	w := hs["Water"]
@@ -49,11 +49,11 @@ func TestSeedOnce(t *testing.T) {
 		t.Fatalf("water: %+v", w)
 	}
 	if hs["Walks"].Target != 2 || hs["Protein"].Target != 180 || hs["Protein"].Step != 20 ||
-		hs["Creatine + supplements"].Type != model.HabitCheck {
+		hs["Creatine + supplements"].Type != model.HabitCheck || hs["Standing desk"].Target != 4 {
 		t.Fatalf("seed values: %+v", hs)
 	}
 	s.SeedHabits(ctx)
-	if all, _ := s.Store.ListHabits(ctx, true); len(all) != 4 {
+	if all, _ := s.Store.ListHabits(ctx, true); len(all) != 5 {
 		t.Fatalf("reseeded: %d", len(all))
 	}
 }

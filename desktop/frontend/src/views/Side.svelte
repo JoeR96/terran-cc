@@ -6,7 +6,6 @@
   import Timer from '../components/Timer.svelte'
   import Habits from '../components/Habits.svelte'
   import TodoList from '../components/TodoList.svelte'
-  import Chime from '../components/Chime.svelte'
   import { route } from '../lib/route.svelte.js'
 
   const FOLD_H = 28
@@ -46,7 +45,6 @@
   }
 </script>
 
-<Chime />
 <div class="sw">
   <div class="hd drag">
     <span>{dayLabel(new Date((db.date || new Date().toISOString().slice(0, 10)) + 'T12:00'))}</span>

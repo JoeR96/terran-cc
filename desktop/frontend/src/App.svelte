@@ -6,6 +6,7 @@
   import Board from './views/Board.svelte'
   import Project from './views/Project.svelte'
   import Popout from './views/Popout.svelte'
+  import Chime from './components/Chime.svelte'
 
   let { startError = '' } = $props()
   const [view, arg] = $derived([route.parts[0] || 'board', route.parts[1]])
@@ -36,6 +37,9 @@
 {:else}
   <Board boardId={arg || 'main'} />
 {/if}
+
+<!-- In the desktop app the shell plays the chime once for all windows. -->
+{#if !conn()?.shell}<Chime />{/if}
 
 {#if db.ready && !db.online}
   <div class="offline">Lost the connection to tccd. Reconnecting…</div>

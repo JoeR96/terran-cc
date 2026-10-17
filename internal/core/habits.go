@@ -248,7 +248,7 @@ func (s *Service) Streak(ctx context.Context) (int, error) {
 	return streak, nil
 }
 
-// SeedHabits creates Joe's four daily habits the first time the service runs.
+// SeedHabits creates Joe's five daily habits the first time the service runs.
 func (s *Service) SeedHabits(ctx context.Context) error {
 	all, err := s.Store.ListHabits(ctx, true)
 	if err != nil || len(all) > 0 {
@@ -259,6 +259,7 @@ func (s *Service) SeedHabits(ctx context.Context) error {
 		{Name: "Water", Icon: "💧", Unit: "ml", Type: model.HabitAmount, Target: 3000, Step: 250},
 		{Name: "Protein", Icon: "🥩", Unit: "g", Type: model.HabitAmount, Target: 180, Step: 20},
 		{Name: "Creatine + supplements", Icon: "💊", Type: model.HabitCheck, Target: 1, Step: 1},
+		{Name: "Standing desk", Icon: "🧍", Type: model.HabitCount, Target: 4, Step: 1},
 	} {
 		h.Order = i + 1
 		if _, err := s.AddHabit(ctx, h); err != nil {
