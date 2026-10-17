@@ -65,14 +65,14 @@ func TestAddDefaults(t *testing.T) {
 func TestAddValidation(t *testing.T) {
 	s, _ := newSvc(t)
 	for name, n := range map[string]NewItem{
-		"empty title":  {Title: "   "},
-		"long title":   {Title: strings.Repeat("x", 301)},
-		"bad when":     {Title: "x", When: "tomorrow"},
-		"bad kind":     {Title: "x", Kind: "epic"},
-		"bad status":   {Title: "x", Status: "doing"},
-		"bad context":  {Title: "x", Context: "home"},
-		"bad project":  {Title: "x", ProjectID: ptr(int64(99))},
-		"bad parent":   {Title: "x", ParentID: ptr(int64(99))},
+		"empty title": {Title: "   "},
+		"long title":  {Title: strings.Repeat("x", 301)},
+		"bad when":    {Title: "x", When: "tomorrow"},
+		"bad kind":    {Title: "x", Kind: "epic"},
+		"bad status":  {Title: "x", Status: "doing"},
+		"bad context": {Title: "x", Context: "home"},
+		"bad project": {Title: "x", ProjectID: ptr(int64(99))},
+		"bad parent":  {Title: "x", ParentID: ptr(int64(99))},
 	} {
 		if _, err := s.AddItem(ctx, n); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s: want ErrInvalid, got %v", name, err)
