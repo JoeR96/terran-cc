@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { todos, todoTree, goals, buildTree, ACTIVE, moveBefore } from './lists.js'
+import { todos, todoTree, goals, buildTree, ACTIVE, moveBefore, descendants } from './lists.js'
 
 const TODAY = '2026-10-17'
 const item = (id, o = {}) => ({ id, title: 't' + id, kind: 'task', project_id: null, parent_id: null, status: 'backlog', when: 'anytime', context: 'irl', done_at: null, ...o })
@@ -114,5 +114,13 @@ describe('ordering', () => {
     expect(moveBefore(['irl', 'work', 'osrs'], 'irl', 'osrs')).toEqual(['work', 'irl', 'osrs'])
     expect(moveBefore(['irl', 'work', 'osrs'], 'irl', null)).toEqual(['work', 'osrs', 'irl'])
     expect(moveBefore(['irl', 'work'], 'x', 'irl')).toEqual(['irl', 'work'])
+  })
+})
+
+describe('descendants', () => {
+  it('collects every sub to-do below an item, however deep', () => {
+    const items = [item(1), item(2, { parent_id: 1 }), item(3, { parent_id: 2 }), item(4, { parent_id: 1 }), item(5)]
+    expect(descendants(items, 1).sort()).toEqual([2, 3, 4])
+    expect(descendants(items, 5)).toEqual([])
   })
 })

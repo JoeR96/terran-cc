@@ -1,6 +1,6 @@
 <script>
   import { db, act } from '../lib/store.svelte.js'
-  import { todoTree, moveBefore } from '../lib/lists.js'
+  import { todoTree, moveBefore, descendants } from '../lib/lists.js'
   import { focus } from '../lib/actions.js'
 
   // Personal to-dos as a collapsible tree: Me / Work / OSRS › when › to-do ›
@@ -38,8 +38,10 @@
   const toggleOpen = k => save(OPEN_KEY, (open = flip(open, k)))
   const toggleShut = id => save(SHUT_KEY, (shut = flip(shut, id)))
 
-  // Drag a group row to reorder Me / Work / OSRS (kept per window), or a
-  // to-do onto a sibling to put it in front of that sibling.
+  // Drag a group row to reorder Me / Work / OSRS (kept per window). Drag a
+  // to-do onto another to-do to put it in front of it (moving it to that
+  // list and parent if they differ), or onto a section row to move it to the
+  // top level there. Sub to-dos travel with their parent.
   let order = $state(load('tcc.todo.order', GROUPS.map(g => g.ctx)))
   const groups = $derived([...GROUPS].sort((a, b) => rank(a.ctx) - rank(b.ctx)))
   const rank = k => (order.includes(k) ? order.indexOf(k) : 99)
@@ -60,19 +62,30 @@
     if (drag?.group) save('tcc.todo.order', (order = moveBefore(groups.map(g => g.ctx), drag.group, ctx)))
     drag = over = null
   }
-  function dropTodo(target, siblings) {
-    if (drag?.id && drag.list === listKey(siblings)) {
-      const ids = moveBefore(siblings.map(n => n.item.id), drag.id, target)
-      ids.forEach((id, i) => {
-        if (siblings.find(n => n.item.id === id).item.position !== i + 1) act.edit(id, { position: i + 1 })
-      })
-    }
-    drag = over = null
+  // move gives a to-do (and everything under it) a new section.
+  async function move(id, ctx, when, parent) {
+    await act.edit(id, { context: ctx, when, parent_id: parent })
+    for (const d of descendants(db.items, id)) act.edit(d, { context: ctx, when })
   }
+  async function dropTodo(target, siblings) {
+    const d = drag
+    drag = over = null
+    if (!d?.id || d.id === target.id || descendants(db.items, d.id).includes(target.id)) return
+    if (d.list !== listKey(siblings)) await move(d.id, ctx(target), target.when, target.parent_id ?? null)
+    const ids = moveBefore([...siblings.map(n => n.item.id).filter(id => id !== d.id), d.id], d.id, target.id)
+    ids.forEach((id, i) => {
+      if (db.items.find(it => it.id === id)?.position !== i + 1) act.edit(id, { position: i + 1 })
+    })
+  }
+  function dropSection(c, when) {
+    const d = drag
+    drag = over = null
+    if (d?.id) move(d.id, c, when, null)
+  }
+  const ctx = it => it.context || 'irl'
   // Siblings are identified by their parent and list, which survive the
   // reloads that live updates cause mid-drag.
   const listKey = siblings => siblings.length && `${siblings[0].item.context}:${siblings[0].item.when}:${siblings[0].item.parent_id ?? ''}`
-  const sameList = siblings => drag?.list === listKey(siblings)
 
   const trees = $derived(Object.fromEntries(GROUPS.flatMap(g => g.hz.map(([w]) => [`${g.ctx}:${w}`, todoTree(db.items, w, g.ctx)]))))
   const openIn = nodes => nodes.reduce((n, c) => n + c.open + (c.item.status !== 'done'), 0)
@@ -130,9 +143,9 @@
     draggable={editing !== it.id}
     role="listitem"
     ondragstart={e => (e.stopPropagation(), dragStart(e, { id: it.id, list: listKey(siblings) }))}
-    ondragover={e => dragOver(e, 't' + it.id, sameList(siblings) && drag.id !== it.id)}
+    ondragover={e => dragOver(e, 't' + it.id, !!drag?.id && drag.id !== it.id)}
     ondragleave={() => over === 't' + it.id && (over = null)}
-    ondrop={e => (e.preventDefault(), e.stopPropagation(), dropTodo(it.id, siblings))}
+    ondrop={e => (e.preventDefault(), e.stopPropagation(), dropTodo(it, siblings))}
     ondragend={() => (drag = over = null)}
   >
     {#if n.children.length}
@@ -189,7 +202,15 @@
     {#each g.hz as [w, label] (w)}
       {@const hk = `h:${g.ctx}:${w}`}
       {@const nodes = trees[`${g.ctx}:${w}`]}
-      <div class="row hz" style="padding-left:14px">
+      <div
+        class="row hz"
+        class:over={over === hk}
+        style="padding-left:14px"
+        role="group"
+        ondragover={e => dragOver(e, hk, !!drag?.id)}
+        ondragleave={() => over === hk && (over = null)}
+        ondrop={e => (e.preventDefault(), dropSection(g.ctx, w))}
+      >
         <button class="ghost node" onclick={() => toggleOpen(hk)}>
           <span class="caret">{open.includes(hk) ? '▾' : '▸'}</span>{label}<span class="faint n">{openIn(nodes)}</span>
         </button>

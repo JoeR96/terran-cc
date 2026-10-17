@@ -77,3 +77,14 @@ export function moveBefore(keys, key, target) {
   const i = target == null ? rest.length : rest.indexOf(target)
   return [...rest.slice(0, i < 0 ? rest.length : i), key, ...rest.slice(i < 0 ? rest.length : i)]
 }
+
+// descendants returns the ids of every item below id, however deep.
+export function descendants(items, id) {
+  const out = []
+  for (let frontier = [id]; frontier.length; ) {
+    const kids = items.filter(it => frontier.includes(it.parent_id)).map(it => it.id)
+    out.push(...kids)
+    frontier = kids
+  }
+  return out
+}
