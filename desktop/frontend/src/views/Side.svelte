@@ -149,9 +149,10 @@
   .sec { padding: 8px 10px; border-bottom: 1px solid var(--line); }
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 10px; }
   .col { min-height: 0; overflow-y: auto; background: var(--bg); border-radius: 7px; padding: 8px 10px; }
-  .band { display: flex; gap: 14px; align-items: center; }
+  .band { display: flex; gap: 14px; align-items: stretch; }
   .bandtimer { flex: none; width: 250px; }
-  .bandhabits { flex: 1; min-width: 0; }
+  .bandhabits { flex: 1; min-width: 0; display: flex; }
+  .bandhabits > :global(.habs) { flex: 1; }
   .cols.three { grid-template-columns: 27fr 40fr 33fr; }
   .boxcol { display: flex; flex-direction: column; overflow: hidden; }
   .col.right { display: flex; flex-direction: column; overflow: hidden; }
