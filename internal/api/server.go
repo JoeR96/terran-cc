@@ -38,6 +38,7 @@ type server struct {
 	assistant *assist.Client
 	osrs      *osrs.Service
 	wiki      string
+	vault     string
 }
 
 type Option func(*server)
@@ -75,6 +76,7 @@ func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string,
 	s.uiRoutes(mux)
 	s.assistRoutes(mux)
 	s.osrsRoutes(mux)
+	s.vaultRoutes(mux)
 	mux.HandleFunc("GET /api/events", s.events)
 	return cors(s.auth(mux))
 }

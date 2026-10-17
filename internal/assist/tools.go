@@ -125,6 +125,16 @@ var tools = []tool{
 		}},
 	{"stop_timer", "Stop the timer.", args{}, nil,
 		func(a args) (string, string, any) { return "POST", "/api/timer/stop", nil }},
+	{"osrs_status", "Joe's OSRS state, live from RuneLite and the hiscores: daily runs (bird houses, herbs, trees...) with each patch, bank stock against targets (status low/ok/full), skill targets and AFK fallbacks.", args{}, nil,
+		func(a args) (string, string, any) { return "GET", "/api/osrs", nil }},
+	{"search_notes", "Search Joe's Obsidian notes (read only). Returns matching note paths and lines.", args{"query": prop("string", "words to find")}, []string{"query"},
+		func(a args) (string, string, any) {
+			return "GET", "/api/vault/search?q=" + url.QueryEscape(fmt.Sprint(a["query"])), nil
+		}},
+	{"read_note", "Read one of Joe's Obsidian notes (read only).", args{"path": prop("string", "path from search_notes, e.g. Hobbies/OSRS/goals.md")}, []string{"path"},
+		func(a args) (string, string, any) {
+			return "GET", "/api/vault/note?path=" + url.QueryEscape(fmt.Sprint(a["path"])), nil
+		}},
 }
 
 func toolSpecs() []args {

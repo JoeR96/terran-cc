@@ -349,6 +349,29 @@ func TestOSRSRoutes(t *testing.T) {
 	}
 }
 
+func TestVaultSearchAndRead(t *testing.T) {
+	vault := t.TempDir()
+	os.MkdirAll(filepath.Join(vault, "Hobbies", "OSRS"), 0o755)
+	os.WriteFile(filepath.Join(vault, "Hobbies", "OSRS", "goals.md"), []byte("## Goals\n\tVoidwaker\n\tMasori\n"), 0o644)
+	os.WriteFile(filepath.Join(vault, "Home.md"), []byte("nothing here"), 0o644)
+	os.WriteFile(filepath.Join(filepath.Dir(vault), "secret.md"), []byte("voidwaker"), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	var hits []map[string]any
+	if c := e.do(t, "GET", "/api/vault/search?q=voidwaker", nil, &hits); c != 200 || len(hits) != 1 || hits[0]["path"] != "Hobbies/OSRS/goals.md" {
+		t.Fatalf("search %d %v", c, hits)
+	}
+	var note map[string]string
+	if c := e.do(t, "GET", "/api/vault/note?path=Hobbies/OSRS/goals.md", nil, &note); c != 200 || !strings.Contains(note["text"], "Masori") {
+		t.Fatalf("read %d %v", c, note)
+	}
+	for _, bad := range []string{"../secret.md", "..%2Fsecret.md", "C:/Windows/win.ini", "Hobbies/../../secret.md"} {
+		if c := e.do(t, "GET", "/api/vault/note?path="+bad, nil, nil); c != 400 && c != 404 {
+			t.Errorf("%s: %d", bad, c)
+		}
+	}
+}
+
 func upload(t *testing.T, e *env, id int64, name, body string) model.Item {
 	t.Helper()
 	var buf bytes.Buffer

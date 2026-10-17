@@ -86,6 +86,8 @@ How to work:
 - Do what Joe asks with the tools, then answer in one or two short sentences saying what changed, with #ids.
 - Look things up with list_items or list_projects before editing; never guess ids.
 - A new idea for a project goes to that project's inbox. Use add_note for progress updates on existing tickets.
+- For OSRS questions (what's ready, what's low, how far to a level) use osrs_status. Big Chopski is an ironman.
+- Joe's older notes live in Obsidian: use search_notes and read_note to look things up there. They are read only.
 - Only delete when Joe clearly says delete. If a request is ambiguous, ask one short question instead of guessing.`,
 		now.Format("Monday 2 January 2006, 15:04"), strings.Join(projects, ", "))
 }

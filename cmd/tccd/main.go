@@ -106,7 +106,7 @@ func run() (err error) {
 	}
 	tracker := osrs.NewService(ocfg)
 	tracker.Version = api.Version
-	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithAssistant(assistant()), api.WithOSRS(tracker, "")), ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithAssistant(assistant()), api.WithOSRS(tracker, ""), api.WithVault(vaultDir())), ReadHeaderTimeout: 10 * time.Second}
 	go tracker.Run(ctx)
 
 	go api.RunTicker(ctx, tm, bus)
@@ -183,4 +183,18 @@ func assistant() *assist.Client {
 		c.Key = func() (string, error) { return k, nil }
 	}
 	return c
+}
+
+// vaultDir is Joe's Obsidian vault, read by the assistant: TCC_VAULT, or
+// Documents\Obsidian Vault when it exists.
+func vaultDir() string {
+	if v := os.Getenv("TCC_VAULT"); v != "" {
+		return v
+	}
+	home, _ := os.UserHomeDir()
+	d := filepath.Join(home, "Documents", "Obsidian Vault")
+	if fi, err := os.Stat(d); err == nil && fi.IsDir() {
+		return d
+	}
+	return ""
 }

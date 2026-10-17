@@ -106,6 +106,9 @@ func TestToolsMapToAPI(t *testing.T) {
 		{"add_note", `{"id":7,"text":"hi"}`, "POST", "/api/items/7/note"},
 		{"log_habit", `{"habit":"water","delta":500}`, "POST", "/api/habits/water/log"},
 		{"start_timer", `{"minutes":25,"task":"Raid prep"}`, "POST", "/api/timer/start"},
+		{"osrs_status", `{}`, "GET", "/api/osrs"},
+		{"search_notes", `{"query":"raid prep"}`, "GET", "/api/vault/search?q=raid+prep"},
+		{"read_note", `{"path":"Hobbies/OSRS/goals.md"}`, "GET", "/api/vault/note?path=Hobbies%2FOSRS%2Fgoals.md"},
 	} {
 		var calls []call
 		if _, err := runTool(c.tool, c.args, recorder(&calls)); err != nil {
