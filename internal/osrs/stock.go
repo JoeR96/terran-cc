@@ -49,6 +49,10 @@ func DefaultStock() []StockItem {
 		item("super-combat", "Super combat (doses)", "Super_combat_potion(4).png", []string{"Super combat potion"}, true, nil, 400),
 		item("anti-venom", "Anti-venom (doses)", "Anti-venom(4).png", []string{"Anti-venom"}, true, nil, 400),
 		item("karambwan", "Karambwan", "Cooked_karambwan.png", []string{"Cooked karambwan"}, false, []string{"Raw karambwan"}, 500),
+		// Sailing-era potions: +6 Fishing for the Morytania elite shark, and
+		// stamina for long trips. Both use trawled secondaries.
+		item("super-fishing", "Super fishing potion (doses)", "Super_fishing_potion(4).png", []string{"Super fishing potion"}, true, nil, 100),
+		item("extended-stamina", "Extended stamina (doses)", "Extended_stamina_potion(4).png", []string{"Extended stamina potion"}, true, nil, 400),
 	}
 }
 
