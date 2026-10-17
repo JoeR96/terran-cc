@@ -8,7 +8,9 @@ const HORIZON = { today: 0, week: 1, month: 2 }
 
 const doneOn = (it, today) => it.status === 'done' && it.done_at && isoDate(new Date(it.done_at)) === today
 const live = (it, today) => it.status !== 'someday' && (it.status !== 'done' || doneOn(it, today))
-const openFirst = (a, b) => (a.status === 'done') - (b.status === 'done') || a.id - b.id
+// Open before done, then by position (0 means never placed, so last), then id.
+const pos = it => it.position || Infinity
+const openFirst = (a, b) => (a.status === 'done') - (b.status === 'done') || pos(a) - pos(b) || a.id - b.id
 
 const ctxOf = it => it.context || 'irl'
 
@@ -65,4 +67,13 @@ export function buildTree(projects, items, statuses) {
     if (count) out.push({ id: p.id, project: p, count, children })
   }
   return out
+}
+
+// moveBefore returns keys with `key` moved in front of `target` (to the end
+// when target is null). An unknown key leaves the list as it was.
+export function moveBefore(keys, key, target) {
+  if (!keys.includes(key) || key === target) return keys
+  const rest = keys.filter(k => k !== key)
+  const i = target == null ? rest.length : rest.indexOf(target)
+  return [...rest.slice(0, i < 0 ? rest.length : i), key, ...rest.slice(i < 0 ? rest.length : i)]
 }

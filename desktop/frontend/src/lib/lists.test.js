@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { todos, todoTree, goals, buildTree, ACTIVE } from './lists.js'
+import { todos, todoTree, goals, buildTree, ACTIVE, moveBefore } from './lists.js'
 
 const TODAY = '2026-10-17'
 const item = (id, o = {}) => ({ id, title: 't' + id, kind: 'task', project_id: null, parent_id: null, status: 'backlog', when: 'anytime', context: 'irl', done_at: null, ...o })
@@ -101,5 +101,18 @@ describe('todoTree', () => {
   it('shows a sub to-do at the top when its parent is not in the list', () => {
     const items = [item(1, { context: 'osrs', when: 'month' }), item(2, { context: 'osrs', when: 'week', parent_id: 1 })]
     expect(todoTree(items, 'week', 'osrs', TODAY).map(n => n.item.id)).toEqual([2])
+  })
+})
+
+describe('ordering', () => {
+  it('sorts to-dos by position, unplaced (0) ones last by id', () => {
+    const items = [item(4, { when: 'today' }), item(1, { when: 'today', position: 2 }), item(2, { when: 'today', position: 1 }), item(3, { when: 'today' })]
+    expect(todos(items, 'today', 'irl', TODAY).map(i => i.id)).toEqual([2, 1, 3, 4])
+  })
+  it('moveBefore puts the dragged key in front of the target', () => {
+    expect(moveBefore(['irl', 'work', 'osrs'], 'osrs', 'irl')).toEqual(['osrs', 'irl', 'work'])
+    expect(moveBefore(['irl', 'work', 'osrs'], 'irl', 'osrs')).toEqual(['work', 'irl', 'osrs'])
+    expect(moveBefore(['irl', 'work', 'osrs'], 'irl', null)).toEqual(['work', 'osrs', 'irl'])
+    expect(moveBefore(['irl', 'work'], 'x', 'irl')).toEqual(['irl', 'work'])
   })
 })
