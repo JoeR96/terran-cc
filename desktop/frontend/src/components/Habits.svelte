@@ -67,9 +67,11 @@
   .habs.wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; height: 100%; }
   /* Wide: each habit is a solid block whose background fills with progress. */
   .wide .cell { position: relative; overflow: hidden; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 6px; padding: 0 8px; display: flex; align-items: center; min-height: 44px; }
-  .wide .h { position: relative; z-index: 1; flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; }
-  .wide .name { flex: 1; min-width: 0; }
-  .wide .p { flex: none; }
+  /* Two lines: the name on top, the value and + below, so neither crowds
+     the other out at any width. */
+  .wide .h { position: relative; z-index: 1; flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; flex-wrap: wrap; row-gap: 2px; padding: 4px 0; }
+  .wide .name { flex: 1 0 100%; min-width: 0; }
+  .wide .p, .wide .box { flex: none; margin-left: auto; }
   .wide .val { font-size: 12.5px; padding: 0 2px; }
   .wide .mini { font-size: 13px; line-height: 20px; padding: 0 7px; }
   .wide .bar { position: absolute; inset: 0; height: auto; margin: 0; border-radius: 0; background: none; }
