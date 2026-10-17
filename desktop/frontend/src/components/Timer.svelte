@@ -1,7 +1,6 @@
 <script>
   import { db, act } from '../lib/store.svelte.js'
   import { mmss } from '../lib/format.js'
-  import { focus } from '../lib/actions.js'
 
   // A plain countdown: pick a length, it counts down, chimes and forgets.
   // compact: smaller digits (side widget). big: large digits (dashboard).
@@ -11,41 +10,24 @@
 
   const t = $derived(db.timer)
   const idle = $derived(!t || t.state === 'idle')
-  // Lock in: 🔒 asks for a task, then a time; the side widget then shows only
-  // the countdown and the task.
-  let asking = $state(false)
-  let task = $state('')
+  // Lock in: 🔒 then a time; the side widget then shows only the countdown.
   let picked = $state('')
   function start(m) {
     act.timer('start', picked ? { minutes: m, label: picked } : { minutes: m })
-    asking = false
-    picked = task = ''
+    picked = ''
   }
   const pct = $derived(t?.total_s ? Math.min(100, (100 * (t.total_s - t.remaining_s)) / t.total_s) : 0)
 </script>
 
-{#if idle && asking && !picked}
-  <div class="ask">
-    <input
-      placeholder="Lock in on… (Enter, then pick a time)"
-      bind:value={task}
-      onkeydown={e => {
-        if (e.key === 'Enter' && task.trim()) picked = task.trim()
-        if (e.key === 'Escape') asking = false
-      }}
-      use:focus
-    />
-    <button class="ghost" title="Cancel" onclick={() => (asking = false)}>✕</button>
-  </div>
-{:else if idle}
+{#if idle}
   {#if picked}
-    <div class="for">🔒 <b>{picked}</b> for… <button class="ghost" title="Cancel" onclick={() => ((picked = task = ''), (asking = false))}>✕</button></div>
+    <div class="for">🔒 Lock in for… <button class="ghost" title="Cancel" onclick={() => (picked = '')}>✕</button></div>
   {/if}
   <div class="grid" class:compact>
     {#each MINUTES as m (m)}
       <button title="Start a {m} minute timer" onclick={() => start(m)}>{m}</button>
     {/each}
-    {#if !picked}<button class="lock" title="Lock in on a task: name it, then pick a time" onclick={() => (asking = true)}>🔒</button>{/if}
+    {#if !picked}<button class="lock" title="Lock in: pick a time and the widget shows only the countdown" onclick={() => (picked = 'Locked in')}>🔒</button>{/if}
   </div>
 {:else}
   <div class="pomo" class:big class:compact>
@@ -74,8 +56,6 @@
   .compact .t { font-size: 22px; }
   .ctl button { font-size: 13px; padding: 2px 7px; margin-left: 3px; }
   .lock { background: var(--yellow-bg); }
-  .ask { display: flex; gap: 4px; }
-  .ask input { flex: 1; min-width: 0; }
   .for { margin-bottom: 5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .for b { color: var(--text); font-weight: 600; }
   .for button { padding: 0 4px; }
