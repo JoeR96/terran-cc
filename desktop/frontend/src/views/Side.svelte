@@ -52,6 +52,14 @@
     }
   }
   let tab = $state(read())
+  // The assistant / notes box folds away so the other panels get its room.
+  let boxOpen = $state((() => { try { return localStorage.getItem('tcc.side.box') !== 'closed' } catch { return true } })())
+  function toggleBox() {
+    boxOpen = !boxOpen
+    try {
+      localStorage.setItem('tcc.side.box', boxOpen ? 'open' : 'closed')
+    } catch {}
+  }
   // The middle column swaps between goals + projects and the OSRS view.
   let mid = $state((() => { try { return localStorage.getItem('tcc.side.mid') || 'goals' } catch { return 'goals' } })())
   function setMid(t) {
@@ -83,10 +91,12 @@
 
 {#snippet box()}
   <div class="tabs">
-    <button class="ghost" class:on={tab === 'chat'} onclick={() => setTab('chat')}>Assistant</button>
-    <button class="ghost" class:on={tab === 'notes'} onclick={() => setTab('notes')}>Notes</button>
+    <button class="ghost" class:on={boxOpen && tab === 'chat'} onclick={() => (setTab('chat'), boxOpen || toggleBox())}>Assistant</button>
+    <button class="ghost" class:on={boxOpen && tab === 'notes'} onclick={() => (setTab('notes'), boxOpen || toggleBox())}>Notes</button>
+    <span class="grow"></span>
+    {#if boxOpen}<button class="ghost fold" title="Fold away" onclick={toggleBox}>{wider ? '»' : '▾'}</button>{/if}
   </div>
-  <div class="tabbody">{#if tab === 'notes'}<Notes />{:else}<Chat />{/if}</div>
+  {#if boxOpen}<div class="tabbody">{#if tab === 'notes'}<Notes />{:else}<Chat />{/if}</div>{/if}
 {/snippet}
 
 <div class="sw" bind:clientWidth={width}>
@@ -121,10 +131,14 @@
         <div class="bandtimer"><Timer /></div>
         <div class="bandhabits"><Habits wide title={false} /></div>
       </div>
-      <div class="cols three">
+      <div class="cols three" class:boxed={!boxOpen}>
         <div class="col"><TodoTree onopen={openItem} /></div>
         <div class="col">{@render middle()}</div>
-        <div class="col boxcol">{@render box()}</div>
+        {#if boxOpen}
+          <div class="col boxcol">{@render box()}</div>
+        {:else}
+          <button class="ghost rail" title="Open the assistant and notes" onclick={toggleBox}><span>« Assistant · Notes</span></button>
+        {/if}
       </div>
     </div>
   {:else if wide}
@@ -135,7 +149,7 @@
         <div class="col"><TodoTree onopen={openItem} /></div>
         <div class="col right">
           <div class="scroll">{@render middle()}</div>
-          <div class="chatbox">{@render box()}</div>
+          <div class="chatbox" class:shut={!boxOpen}>{@render box()}</div>
         </div>
       </div>
     </div>
@@ -145,7 +159,7 @@
       <div class="sec"><Habits /></div>
       <div class="sec"><TodoTree onopen={openItem} /></div>
       <div class="sec">{@render middle()}</div>
-      <div class="sec chatnarrow">{@render box()}</div>
+      <div class="sec chatnarrow" class:shut={!boxOpen}>{@render box()}</div>
     </div>
   {/if}
 </div>
@@ -175,6 +189,13 @@
   .chatbox { flex: none; height: 42%; min-height: 160px; border-top: 1px solid var(--line); padding-top: 8px; }
   .chatnarrow { height: 320px; }
   .chatbox, .chatnarrow { display: flex; flex-direction: column; }
+  .chatbox.shut, .chatnarrow.shut { height: auto; min-height: 0; }
+  .cols.three.boxed { grid-template-columns: 38fr 62fr 26px; }
+  .rail { padding: 0; border-radius: 7px; background: var(--bg); display: flex; justify-content: center; }
+  .rail span { writing-mode: vertical-rl; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; padding: 10px 0; }
+  .rail:hover { background: var(--panel-2); }
+  .grow { flex: 1; }
+  .tabs .fold { letter-spacing: 0; }
   .tabs { display: flex; gap: 2px; margin-bottom: 6px; flex: none; }
   .tabs button { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; padding: 1px 6px; }
   .tabs button.on { color: var(--text); background: var(--btn); }

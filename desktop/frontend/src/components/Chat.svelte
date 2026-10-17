@@ -86,7 +86,7 @@
 
 <style>
   .chat { display: flex; flex-direction: column; min-height: 0; height: 100%; position: relative; }
-  .new { position: absolute; top: -24px; right: 0; font-size: 10px; padding: 0 5px; }
+  .new { position: absolute; top: -24px; right: 26px; font-size: 10px; padding: 0 5px; }
   .log { flex: 1; min-height: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 0 6px; user-select: text; }
   .m { max-width: 92%; padding: 4px 8px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
   .m.user { align-self: flex-end; background: var(--btn); }
