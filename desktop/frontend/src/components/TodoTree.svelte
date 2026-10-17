@@ -263,8 +263,8 @@
   .t:hover .acts { display: flex; }
   .acts button { padding: 0 4px; font-size: 11px; }
   .ctag { flex: none; font-size: 9.5px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: var(--btn); color: var(--muted); }
-  .ctag.work { background: #23334a; color: #9cc4ff; }
-  .ctag.osrs { background: #3d3524; color: var(--yellow); }
+  .ctag.work { background: var(--blue-bg); color: var(--blue); }
+  .ctag.osrs { background: var(--yellow-bg); color: var(--yellow); }
   .sep { border-top: 1px solid var(--line); margin: 5px 0; }
   .over { box-shadow: inset 0 2px 0 var(--accent); }
   .grp, .t { cursor: grab; }

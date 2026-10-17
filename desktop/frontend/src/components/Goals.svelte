@@ -32,6 +32,6 @@
   .g:hover .x { display: inline; }
   .chip { flex: none; width: 40px; text-align: center; font-size: 9.5px; border: 1px solid var(--line-2); color: var(--muted); border-radius: 8px; line-height: 14px; }
   .chip.today { border-color: var(--accent); color: var(--accent); }
-  .chip.week { border-color: #9cc4ff; color: #9cc4ff; }
+  .chip.week { border-color: var(--blue); color: var(--blue); }
   .empty { font-size: 11px; padding: 2px 0; }
 </style>

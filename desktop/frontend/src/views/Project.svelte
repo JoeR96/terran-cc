@@ -212,7 +212,7 @@
   nav button.on { color: var(--strong); box-shadow: inset 0 -2px 0 var(--accent); border-radius: 0; }
   .scroll { flex: 1; overflow: auto; padding: 8px 12px 16px; }
   .desc { display: block; color: var(--muted); padding: 2px 0; margin-bottom: 8px; width: 100%; text-align: left; }
-  .inbox { background: var(--panel-2); border: 1px dashed #3a4150; border-radius: 6px; padding: 8px; margin-bottom: 12px; color: var(--muted); }
+  .inbox { background: var(--panel-2); border: 1px dashed var(--btn-hover); border-radius: 6px; padding: 8px; margin-bottom: 12px; color: var(--muted); }
   .ibar { display: flex; align-items: center; gap: 10px; }
   .ibar span { white-space: nowrap; }
   .ibar input { flex: 1; min-width: 80px; }
@@ -221,8 +221,8 @@
   .lanes { display: grid; grid-template-columns: 1.1fr 1fr 1.3fr; gap: 10px; align-items: start; }
   .col { display: flex; flex-direction: column; gap: 10px; }
   .lane { background: var(--panel); border-radius: 6px; padding: 8px; min-height: 80px; }
-  .t { display: block; width: 100%; text-align: left; color: var(--text); background: var(--card); border: 1px solid #303644; border-radius: 5px; padding: 6px 7px; margin-bottom: 5px; cursor: pointer; }
-  .t:hover { background: #2a3040; }
+  .t { display: block; width: 100%; text-align: left; color: var(--text); background: var(--card); border: 1px solid var(--btn-hover); border-radius: 5px; padding: 6px 7px; margin-bottom: 5px; cursor: pointer; }
+  .t:hover { background: var(--card); }
   .pos { color: var(--muted); margin-right: 3px; }
   .meta { color: var(--muted); font-size: 10.5px; margin-top: 3px; }
   .dep { color: var(--yellow); }

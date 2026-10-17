@@ -85,8 +85,8 @@
   .line { display: flex; width: 100%; justify-content: space-between; gap: 8px; text-align: left; color: var(--text); padding: 4px 2px; border-bottom: 1px solid var(--line); border-radius: 0; }
   .line span:last-child { white-space: nowrap; }
   .head { border: 0; }
-  .card { display: block; width: 100%; text-align: left; color: var(--text); background: var(--card); border: 1px solid #303644; border-radius: 5px; padding: 5px 7px; margin-bottom: 5px; }
-  .card:hover { background: #2a3040; }
+  .card { display: block; width: 100%; text-align: left; color: var(--text); background: var(--card); border: 1px solid var(--btn-hover); border-radius: 5px; padding: 5px 7px; margin-bottom: 5px; }
+  .card:hover { background: var(--card); }
   .meta { color: var(--muted); font-size: 10.5px; margin-top: 2px; }
   .claude { color: var(--purple); }
   .small { font-size: 11px; margin-bottom: 4px; }

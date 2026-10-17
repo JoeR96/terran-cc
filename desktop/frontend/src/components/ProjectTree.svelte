@@ -144,8 +144,8 @@
   .title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
   .title:hover { color: var(--strong); }
   .st { flex: none; font-size: 9.5px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 3px; padding: 0 4px; line-height: 14px; }
-  .st.review { color: var(--yellow); border-color: #5a4d2a; }
-  .st.in_progress { color: #9cc4ff; border-color: #2f4560; }
+  .st.review { color: var(--yellow); border-color: var(--yellow-line); }
+  .st.in_progress { color: var(--blue); border-color: var(--blue-line); }
   .hz { display: none; flex: none; }
   .hz.set, .t:hover .hz { display: flex; }
   .hz button { padding: 0 3px; font-size: 10px; line-height: 14px; }

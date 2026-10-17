@@ -110,7 +110,7 @@
   .acts { display: none; gap: 1px; align-items: center; }
   .td:hover .acts { display: flex; }
   .acts button { padding: 0 3px; font-size: 11px; }
-  .ctx { font-size: 9px; color: #9cc4ff; border: 1px solid #23334a; border-radius: 3px; padding: 0 3px; }
+  .ctx { font-size: 9px; color: var(--blue); border: 1px solid var(--blue-bg); border-radius: 3px; padding: 0 3px; }
   .edit { flex: 1; min-width: 0; padding: 0 4px; }
   .add { padding: 2px 0; color: var(--faint); }
   .add:hover { background: none; color: var(--text); }
@@ -118,5 +118,5 @@
   .addrow { display: flex; gap: 4px; margin-top: 3px; }
   .addrow input { flex: 1; min-width: 0; }
   .ctxbtn { font-size: 10px; }
-  .ctxbtn.on { color: #9cc4ff; }
+  .ctxbtn.on { color: var(--blue); }
 </style>

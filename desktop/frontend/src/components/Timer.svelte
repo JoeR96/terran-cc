@@ -68,12 +68,12 @@
   .grid.compact button { padding: 3px 0; font-size: 12px; }
   .pomo { display: flex; align-items: center; justify-content: space-between; }
   .t { font-size: 26px; font-weight: 600; color: var(--accent); padding: 0; font-variant-numeric: tabular-nums; }
-  .t:hover { background: none; color: #ffa47c; }
+  .t:hover { background: none; color: var(--accent-hi); }
   .t.paused { color: var(--muted); }
   .big .t { font-size: 48px; }
   .compact .t { font-size: 22px; }
   .ctl button { font-size: 13px; padding: 2px 7px; margin-left: 3px; }
-  .lock { background: #3d3524; }
+  .lock { background: var(--yellow-bg); }
   .ask { display: flex; gap: 4px; }
   .ask input { flex: 1; min-width: 0; }
   .for { margin-bottom: 5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

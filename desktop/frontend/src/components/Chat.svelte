@@ -91,7 +91,7 @@
   .m { max-width: 92%; padding: 4px 8px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
   .m.user { align-self: flex-end; background: var(--btn); }
   .m.assistant { align-self: flex-start; background: var(--panel-2); }
-  .m.err { color: var(--red); background: #2a1a1c; }
+  .m.err { color: var(--red); background: var(--red-bg); }
   .act { font-size: 10.5px; color: var(--green); margin-top: 2px; }
   .act.bad { color: var(--red); }
   .hint { font-size: 11px; }

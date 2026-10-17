@@ -52,6 +52,6 @@
 
 <style>
   .notes { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-  textarea { flex: 1; min-height: 60px; resize: none; font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  textarea { flex: 1; min-height: 60px; resize: none; font: 12px/1.45 var(--font); }
   .foot { font-size: 10px; text-align: right; padding-top: 2px; min-height: 14px; }
 </style>
