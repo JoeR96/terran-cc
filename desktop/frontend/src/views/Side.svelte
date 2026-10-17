@@ -42,6 +42,13 @@
     menu = false
   }
   const openItem = it => (drawer = it.id)
+  // Ctrl+T toggles always-on-top while the widget has focus.
+  function onKey(e) {
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 't') {
+      e.preventDefault()
+      setTop()
+    }
+  }
 
   // The bottom-right box holds the assistant or the notes scratchpad.
   const read = () => {
@@ -99,9 +106,16 @@
   {#if boxOpen}<div class="tabbody">{#if tab === 'notes'}<Notes />{:else}<Chat />{/if}</div>{/if}
 {/snippet}
 
+<svelte:window onkeydown={onKey} />
+
 <div class="sw" bind:clientWidth={width}>
   <div class="hd drag">
-    <span>{dayLabel(new Date((db.date || new Date().toISOString().slice(0, 10)) + 'T12:00'))}{#if wider} · 🔥 {db.streak}-day streak{/if}</span>
+    <span class="hdl">
+      {dayLabel(new Date((db.date || new Date().toISOString().slice(0, 10)) + 'T12:00'))}{#if wider} · 🔥 {db.streak}-day streak{/if}
+      {#if conn().shell}
+        <button class="ghost nodrag pin" class:on={onTop} title={onTop ? 'Always on top (Ctrl+T to turn off)' : 'Not on top (Ctrl+T to pin)'} onclick={setTop}>📌</button>
+      {/if}
+    </span>
     <span class="nodrag btns">
       <button class="ghost" title="Menu" onclick={() => (menu = !menu)}>⋯</button>
       {#if conn().shell}
@@ -114,7 +128,7 @@
     <div class="menu">
       <button class="ghost" onclick={() => { shell('open', { kind: 'dashboard' }); menu = false }}>Open dashboard</button>
       {#if conn().shell}
-        <button class="ghost" onclick={setTop}>{onTop ? '✓ ' : ''}Always on top</button>
+        <button class="ghost" onclick={setTop}>{onTop ? '✓ ' : ''}Always on top <span class="faint">Ctrl+T</span></button>
       {/if}
     </div>
   {/if}
@@ -170,6 +184,9 @@
   .sw { height: 100vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); }
   .hd { display: flex; justify-content: space-between; align-items: center; padding: 3px 4px 3px 10px; background: var(--panel-2); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; flex: none; }
   .btns button { padding: 0 6px; }
+  .hdl { display: flex; align-items: center; gap: 6px; }
+  .pin { padding: 0 4px; font-size: 11px; filter: grayscale(1); opacity: .35; }
+  .pin.on { filter: none; opacity: 1; }
   .menu { display: flex; flex-direction: column; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 4px; }
   .menu button { text-align: left; color: var(--text); }
   .body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
