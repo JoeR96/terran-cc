@@ -224,29 +224,53 @@ func TestTimerToggleHTTP(t *testing.T) {
 	}
 }
 
-func TestAttachment(t *testing.T) {
-	e := setup(t)
-	var it model.Item
-	e.do(t, "POST", "/api/items", map[string]any{"title": "x"}, &it)
+func upload(t *testing.T, e *env, id int64, name, body string) model.Item {
+	t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	fw, _ := mw.CreateFormFile("file", `..\..\shot.png`)
-	fw.Write([]byte("png"))
+	fw, _ := mw.CreateFormFile("file", name)
+	fw.Write([]byte(body))
 	mw.Close()
-	req, _ := http.NewRequest("POST", e.srv.URL+"/api/items/"+itoa(it.ID)+"/attachments", &buf)
+	req, _ := http.NewRequest("POST", e.srv.URL+"/api/items/"+itoa(id)+"/attachments", &buf)
 	req.Header.Set("Authorization", "Bearer "+tok)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode != 200 {
-		t.Fatalf("%v %v", resp.StatusCode, err)
+		t.Fatalf("upload: %v %v", resp.StatusCode, err)
 	}
+	var it model.Item
 	json.NewDecoder(resp.Body).Decode(&it)
-	want := filepath.Join(e.home, "attachments", itoa(it.ID), "shot.png")
-	if len(it.Attachments) != 1 || it.Attachments[0] != want {
-		t.Fatalf("%v want %s", it.Attachments, want)
+	return it
+}
+
+func TestAttachment(t *testing.T) {
+	e := setup(t)
+	var it model.Item
+	e.do(t, "POST", "/api/items", map[string]any{"title": "x"}, &it)
+	it = upload(t, e, it.ID, `..\..\shot.png`, "png1")
+	it = upload(t, e, it.ID, "shot.png", "png2")
+	want := []string{"attachments/1/shot.png", "attachments/1/shot-1.png"}
+	if len(it.Attachments) != 2 || it.Attachments[0] != want[0] || it.Attachments[1] != want[1] {
+		t.Fatalf("%v want %v", it.Attachments, want)
 	}
-	if b, _ := os.ReadFile(want); string(b) != "png" {
+	if b, _ := os.ReadFile(filepath.Join(e.home, "attachments", "1", "shot.png")); string(b) != "png1" {
 		t.Fatalf("file %q", b)
+	}
+	req, _ := http.NewRequest("GET", e.srv.URL+"/api/items/1/attachments/shot-1.png", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("get: %v %v", resp.StatusCode, err)
+	}
+	if b, _ := io.ReadAll(resp.Body); string(b) != "png2" {
+		t.Fatalf("served %q", b)
+	}
+	for _, bad := range []string{"..%2F..%2Ft.db", "missing.png"} {
+		req, _ = http.NewRequest("GET", e.srv.URL+"/api/items/1/attachments/"+bad, nil)
+		req.Header.Set("Authorization", "Bearer "+tok)
+		if resp, _ = http.DefaultClient.Do(req); resp.StatusCode != 404 {
+			t.Fatalf("%s: got %d", bad, resp.StatusCode)
+		}
 	}
 }
 
@@ -278,5 +302,41 @@ func TestSSE(t *testing.T) {
 	case <-got:
 	case <-time.After(time.Second):
 		t.Fatal("no item.changed event")
+	}
+}
+
+func TestShutdownEndpoint(t *testing.T) {
+	home := t.TempDir()
+	db, _ := sqlite.Open(filepath.Join(home, "t.db"))
+	defer db.Close()
+	called := make(chan struct{}, 1)
+	h := New(&core.Service{Store: db, Clock: core.SystemClock{}}, timer.New(timer.DefaultConfig(), time.Now),
+		events.NewBus(), tok, home, WithShutdown(func() { called <- struct{}{} }))
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	resp, _ := http.Post(srv.URL+"/api/shutdown", "", nil)
+	if resp.StatusCode != 401 {
+		t.Fatalf("unauthenticated shutdown: %d", resp.StatusCode)
+	}
+	req, _ := http.NewRequest("POST", srv.URL+"/api/shutdown", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, _ = http.DefaultClient.Do(req)
+	if resp.StatusCode != 202 {
+		t.Fatalf("shutdown: %d", resp.StatusCode)
+	}
+	select {
+	case <-called:
+	case <-time.After(time.Second):
+		t.Fatal("shutdown callback not called")
+	}
+}
+
+func TestHealthIncludesHome(t *testing.T) {
+	e := setup(t)
+	resp, _ := http.Get(e.srv.URL + "/api/health")
+	var m map[string]any
+	json.NewDecoder(resp.Body).Decode(&m)
+	if m["home"] != e.home || m["pid"] == nil {
+		t.Fatalf("%v", m)
 	}
 }

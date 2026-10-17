@@ -12,9 +12,9 @@ You need Go 1.24 or later.
 pwsh -File scripts/install.ps1
 ```
 
-This builds `tcc` and `tccd` into your Go bin folder and installs the `terran-cc` Claude skill. Add `-DispatchTasks` to also replace your `dispatch-tasks` skill with the version that reads tickets from Terran CC. The script backs up the old one first.
+This builds `tcc`, `tccw` and `tccd` into your Go bin folder and installs the `terran-cc` Claude skill. Add `-DispatchTasks` to also replace your `dispatch-tasks` skill with the version that reads tickets from Terran CC. The script backs up the old one first.
 
-You never start `tccd` yourself. The first `tcc` command starts it in the background.
+You never start `tccd` yourself. The first `tcc` command starts it in the background. If you install a newer version, `tcc` replaces the old service by itself. `tcc service status`, `tcc service stop` and `tcc service restart` are there if you need them.
 
 Your data lives in `%APPDATA%\terran-cc`: the database (`tcc.db`), the service log (`tccd.log`) and attachments. Set `TCC_HOME` to use a different folder.
 
@@ -57,7 +57,7 @@ A ticket moves through `inbox → backlog → up_next → in_progress → review
 
 ## Stream Deck buttons
 
-Use the Stream Deck's built-in "Open" (System) action and point it at `tcc.exe` with these arguments:
+Use the Stream Deck's built-in "Open" (System) action and point it at `tccw.exe` in your Go bin folder, with these arguments. `tccw` is the same as `tcc` but runs without a console window, so nothing flashes on screen when you press a button.
 
 | Button | Arguments |
 |--------|-----------|

@@ -231,3 +231,22 @@ func TestTimerAndStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceCmd(t *testing.T) {
+	h := newHarness(t)
+	stopped, started := 0, 0
+	var out bytes.Buffer
+	root := NewRoot(func() (*client.Client, error) { return h.c, nil }, &out, &out)
+	root.AddCommand(ServiceCmd(
+		func() error { stopped++; return nil },
+		func() (*client.Client, error) { started++; return h.c, nil },
+		&out))
+	for _, args := range [][]string{{"service", "stop"}, {"service", "restart"}, {"service", "status"}} {
+		if code := Execute(root, args); code != 0 {
+			t.Fatalf("%v: exit %d\n%s", args, code, out.String())
+		}
+	}
+	if stopped != 2 || started != 2 || !strings.Contains(out.String(), "version") {
+		t.Fatalf("stopped %d started %d\n%s", stopped, started, out.String())
+	}
+}

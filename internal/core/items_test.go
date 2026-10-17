@@ -259,3 +259,22 @@ func TestOnChangeCalled(t *testing.T) {
 		t.Fatalf("events: %v", got)
 	}
 }
+
+func TestParentCycle(t *testing.T) {
+	s, _ := newSvc(t)
+	p := mustProject(t, s)
+	a, _ := s.AddItem(ctx, NewItem{Title: "a", ProjectID: &p.ID})
+	b, _ := s.AddItem(ctx, NewItem{Title: "b", ProjectID: &p.ID, ParentID: &a.ID})
+	pb := &b.ID
+	if _, err := s.EditItem(ctx, a.ID, ItemPatch{ParentID: &pb}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("parent cycle accepted: %v", err)
+	}
+}
+
+func TestAddReturnsEmptySlices(t *testing.T) {
+	s, _ := newSvc(t)
+	it, _ := s.AddItem(ctx, NewItem{Title: "x"})
+	if it.DependsOn == nil || it.Evidence == nil || it.Attachments == nil {
+		t.Fatalf("nil slices: %+v", it)
+	}
+}

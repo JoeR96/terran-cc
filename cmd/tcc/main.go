@@ -33,13 +33,30 @@ func tccdPath() string {
 }
 
 func main() {
-	getClient := func() (*client.Client, error) {
+	start := func() (*client.Client, error) {
 		home, err := config.Home()
 		if err != nil {
 			return nil, err
 		}
 		return client.EnsureDaemon(home, tccdPath(), 5*time.Second)
 	}
-	root := cli.NewRoot(getClient, os.Stdout, os.Stderr)
+	stop := func() error {
+		home, err := config.Home()
+		if err != nil {
+			return err
+		}
+		d, err := config.ReadDaemon(home)
+		if err != nil {
+			return nil // nothing running
+		}
+		c := client.New(d.Addr, d.Token)
+		if _, err := c.Health(); err != nil {
+			config.RemoveDaemon(home) // stale file
+			return nil
+		}
+		return client.StopDaemon(home, c, 5*time.Second)
+	}
+	root := cli.NewRoot(start, os.Stdout, os.Stderr)
+	root.AddCommand(cli.ServiceCmd(stop, start, os.Stdout))
 	os.Exit(cli.Execute(root, os.Args[1:]))
 }

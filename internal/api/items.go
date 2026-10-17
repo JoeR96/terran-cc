@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -239,6 +240,7 @@ func (s *server) itemRoutes(mux *http.ServeMux) {
 		return s.svc.AddEvidence(r.Context(), id, body.Evidence)
 	}))
 	mux.HandleFunc("POST /api/items/{id}/attachments", withItem(s.attach))
+	mux.HandleFunc("GET /api/items/{id}/attachments/{name}", s.serveAttachment)
 }
 
 func (s *server) attach(r *http.Request, id int64) (model.Item, error) {
@@ -260,10 +262,18 @@ func (s *server) attach(r *http.Request, id int64) (model.Item, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return model.Item{}, err
 	}
-	dst := filepath.Join(dir, name)
-	out, err := os.Create(dst)
-	if err != nil {
-		return model.Item{}, err
+	// Never overwrite: shot.png, shot-1.png, shot-2.png ...
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
+	var out *os.File
+	for i := 0; out == nil; i++ {
+		if i > 0 {
+			name = fmt.Sprintf("%s-%d%s", stem, i, ext)
+		}
+		out, err = os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil && !os.IsExist(err) {
+			return model.Item{}, err
+		}
 	}
 	if _, err := io.Copy(out, f); err != nil {
 		out.Close()
@@ -272,5 +282,26 @@ func (s *server) attach(r *http.Request, id int64) (model.Item, error) {
 	if err := out.Close(); err != nil {
 		return model.Item{}, err
 	}
-	return s.svc.AddAttachment(r.Context(), id, dst)
+	// Stored relative to the service home so clients on other machines can
+	// fetch it through GET /api/items/{id}/attachments/{name}.
+	return s.svc.AddAttachment(r.Context(), id, "attachments/"+itoa(id)+"/"+name)
+}
+
+func (s *server) serveAttachment(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	it, err := s.svc.Store.GetItem(r.Context(), id)
+	if err != nil {
+		writeErr(w, itemErr(err, id))
+		return
+	}
+	rel := "attachments/" + itoa(id) + "/" + r.PathValue("name")
+	if !slices.Contains(it.Attachments, rel) {
+		writeErr(w, fmt.Errorf("%w: attachment %q on item #%d", store.ErrNotFound, r.PathValue("name"), id))
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.home, filepath.FromSlash(rel)))
 }

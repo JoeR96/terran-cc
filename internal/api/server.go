@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -19,29 +20,48 @@ import (
 	"terrancc/internal/timer"
 )
 
-const Version = "0.1.0"
+// Version is a var so tests can build an "older" tccd with -ldflags -X.
+var Version = "0.1.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
 
 type server struct {
-	svc   *core.Service
-	timer *timer.Timer
-	bus   *events.Bus
-	token string
-	home  string
+	svc      *core.Service
+	timer    *timer.Timer
+	bus      *events.Bus
+	token    string
+	home     string
+	shutdown func()
 }
+
+type Option func(*server)
+
+// WithShutdown enables POST /api/shutdown, which calls fn.
+func WithShutdown(fn func()) Option { return func(s *server) { s.shutdown = fn } }
 
 // New wires svc.OnChange to the bus (when unset) and returns the API handler.
 // home is where attachments are stored.
-func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string) http.Handler {
+func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string, opts ...Option) http.Handler {
 	s := &server{svc: svc, timer: t, bus: bus, token: token, home: home}
+	for _, o := range opts {
+		o(s)
+	}
 	if svc.OnChange == nil {
 		svc.OnChange = func(kind string, id int64) { bus.Publish(events.Event{Type: kind + ".changed", ID: id}) }
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"ok": true, "version": Version})
+		// home and pid let a client or a second tccd tell whose service this is.
+		writeJSON(w, 200, map[string]any{"ok": true, "version": Version, "home": home, "pid": os.Getpid()})
+	})
+	mux.HandleFunc("POST /api/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		if s.shutdown == nil {
+			writeJSON(w, 404, map[string]string{"error": "shutdown is not enabled"})
+			return
+		}
+		writeJSON(w, 202, map[string]bool{"stopping": true})
+		go s.shutdown()
 	})
 	s.projectRoutes(mux)
 	s.itemRoutes(mux)

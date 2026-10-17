@@ -181,6 +181,19 @@ func (s *Service) checkRefs(ctx context.Context, st store.Store, it *model.Item)
 		if !sameProject(parent.ProjectID, it.ProjectID) {
 			return invalid("a sub-task must be in the same project as its parent")
 		}
+		// Walk up from the new parent; reaching this item again would loop.
+		for seen, p := map[int64]bool{}, parent; p.ParentID != nil && it.ID != 0; {
+			if *p.ParentID == it.ID {
+				return invalid("#%d is already a sub-task of #%d", *it.ParentID, it.ID)
+			}
+			if seen[p.ID] {
+				break
+			}
+			seen[p.ID] = true
+			if p, err = st.GetItem(ctx, *p.ParentID); err != nil {
+				break
+			}
+		}
 	}
 	return nil
 }
@@ -201,6 +214,7 @@ func (s *Service) AddItem(ctx context.Context, n NewItem) (model.Item, error) {
 	it := model.Item{
 		Title: title, Notes: n.Notes, Kind: n.Kind, ProjectID: n.ProjectID, ParentID: n.ParentID,
 		Status: n.Status, When: n.When, Context: n.Context, Priority: n.Priority, CreatedAt: now, UpdatedAt: now,
+		DependsOn: []int64{}, Evidence: []model.Evidence{}, Attachments: []string{},
 	}
 	if it.Kind == "" {
 		it.Kind = model.KindTodo

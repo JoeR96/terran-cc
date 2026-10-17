@@ -15,8 +15,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	"terrancc/internal/api"
 	"terrancc/internal/config"
 	"terrancc/internal/core"
 	"terrancc/internal/model"
@@ -233,38 +235,83 @@ func (c *Client) TimerConfig(cfg map[string]any) (map[string]any, error) {
 
 // --- daemon ---
 
-func healthy(home string) (*Client, bool) {
+// healthy returns a client for the tccd in daemon.json if it answers, and
+// the version it reports.
+func healthy(home string) (*Client, string, bool) {
 	d, err := config.ReadDaemon(home)
 	if err != nil || d.Addr == "" {
-		return nil, false
+		return nil, "", false
 	}
 	c := New(d.Addr, d.Token)
 	c.http.Timeout = time.Second
-	if _, err := c.Health(); err != nil {
-		return nil, false
+	h, err := c.Health()
+	if err != nil {
+		return nil, "", false
 	}
 	c.http.Timeout = 10 * time.Second
-	return c, true
+	v, _ := h["version"].(string)
+	return c, v, true
 }
 
 // EnsureDaemon returns a client for the running tccd, starting tccdPath
-// (detached) if needed and waiting up to timeout for it to answer.
+// (detached) if needed and waiting up to timeout for it to answer. A tccd
+// from an older build is stopped and replaced.
 func EnsureDaemon(home, tccdPath string, timeout time.Duration) (*Client, error) {
-	if c, ok := healthy(home); ok {
-		return c, nil
+	if c, v, ok := healthy(home); ok {
+		if v == api.Version {
+			return c, nil
+		}
+		if err := StopDaemon(home, c, timeout); err != nil {
+			return nil, fmt.Errorf("could not stop the old terran-cc service (version %s): %w", v, err)
+		}
 	}
 	cmd := exec.Command(tccdPath, "--home", home)
 	detach(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("could not start the terran-cc service (%s): %w", tccdPath, err)
 	}
-	go cmd.Wait() // reap it if it exits early
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	deadline := time.After(timeout)
+	for {
+		if c, _, ok := healthy(home); ok {
+			return c, nil
+		}
+		select {
+		case err := <-exited:
+			if c, _, ok := healthy(home); ok { // it found our service already running
+				return c, nil
+			}
+			return nil, fmt.Errorf("terran-cc service exited (%v): %s", err, lastLogLine(home))
+		case <-deadline:
+			return nil, errors.New("terran-cc service did not start (see " + filepath.Join(home, "tccd.log") + ")")
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+// StopDaemon asks tccd to shut down and waits until it has gone.
+func StopDaemon(home string, c *Client, timeout time.Duration) error {
+	if err := c.do("POST", "/api/shutdown", nil, nil); err != nil {
+		return err
+	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if c, ok := healthy(home); ok {
-			return c, nil
+		_, healthErr := c.Health()
+		_, fileErr := config.ReadDaemon(home)
+		if healthErr != nil && fileErr != nil {
+			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return nil, errors.New("terran-cc service did not start (see " + filepath.Join(home, "tccd.log") + ")")
+	return errors.New("terran-cc service did not stop in time")
+}
+
+func lastLogLine(home string) string {
+	b, err := os.ReadFile(filepath.Join(home, "tccd.log"))
+	if err != nil {
+		return "no log"
+	}
+	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+	return strings.TrimSpace(lines[len(lines)-1])
 }

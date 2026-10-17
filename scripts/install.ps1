@@ -1,4 +1,4 @@
-# Installs tcc and tccd with `go install`, and copies the terran-cc skill into
+# Installs tcc and tccd with `go install`, builds the windowless tccw, and copies the terran-cc skill into
 # ~/.claude/skills.
 #
 # The rewired dispatch-tasks skill reads tickets from Terran CC instead of
@@ -9,15 +9,26 @@ param([switch]$DispatchTasks)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 
+$bin = Join-Path (go env GOPATH) 'bin'
+
+# Stop the running service so the new tccd takes over. (tcc also replaces an
+# older tccd by itself, but stopping first keeps the swap clean.)
+if (Test-Path (Join-Path $bin 'tcc.exe')) {
+    & (Join-Path $bin 'tcc.exe') service stop 2>&1 | Out-Null
+}
+
 Push-Location $repo
 try {
     go install ./cmd/tcc ./cmd/tccd
     if ($LASTEXITCODE -ne 0) { throw 'go install failed' }
+    # tccw is tcc built as a Windows GUI program: no console window flashes
+    # when a Stream Deck button runs it.
+    go build -ldflags -H=windowsgui -o (Join-Path $bin 'tccw.exe') ./cmd/tcc
+    if ($LASTEXITCODE -ne 0) { throw 'building tccw failed' }
 } finally {
     Pop-Location
 }
-$bin = Join-Path (go env GOPATH) 'bin'
-Write-Host "Installed tcc and tccd to $bin"
+Write-Host "Installed tcc, tccw and tccd to $bin"
 if (-not (($env:PATH -split ';') -contains $bin)) {
     Write-Warning "$bin is not on your PATH. Add it so 'tcc' works from any terminal."
 }
