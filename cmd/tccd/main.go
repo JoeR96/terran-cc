@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"terrancc/internal/api"
+	"terrancc/internal/assist"
 	"terrancc/internal/config"
 	"terrancc/internal/core"
 	"terrancc/internal/events"
@@ -95,7 +96,7 @@ func run() (err error) {
 	}
 	tm := timer.New(cfg, time.Now)
 	bus := events.NewBus()
-	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop)), ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithAssistant(assistant())), ReadHeaderTimeout: 10 * time.Second}
 
 	go api.RunTicker(ctx, tm, bus)
 	go func() {
@@ -153,4 +154,22 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// assistant talks to OpenCode Go. The key is read on each message, from
+// TCC_OPENCODE_KEY or opencode's own auth.json, so connecting OpenCode Go
+// later needs no restart. TCC_ASSIST_MODEL and TCC_ASSIST_URL override the
+// defaults.
+func assistant() *assist.Client {
+	c := &assist.Client{URL: assist.DefaultURL, Model: assist.DefaultModel, Key: assist.OpencodeKey(assist.AuthPath()), Version: api.Version}
+	if v := os.Getenv("TCC_ASSIST_URL"); v != "" {
+		c.URL = v
+	}
+	if v := os.Getenv("TCC_ASSIST_MODEL"); v != "" {
+		c.Model = v
+	}
+	if k := os.Getenv("TCC_OPENCODE_KEY"); k != "" {
+		c.Key = func() (string, error) { return k, nil }
+	}
+	return c
 }

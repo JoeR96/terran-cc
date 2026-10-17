@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"terrancc/internal/assist"
 	"terrancc/internal/core"
 	"terrancc/internal/events"
 	"terrancc/internal/store"
@@ -21,18 +22,19 @@ import (
 )
 
 // Version is a var so tests can build an "older" tccd with -ldflags -X.
-var Version = "0.4.0"
+var Version = "0.5.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
 
 type server struct {
-	svc      *core.Service
-	timer    *timer.Timer
-	bus      *events.Bus
-	token    string
-	home     string
-	shutdown func()
+	svc       *core.Service
+	timer     *timer.Timer
+	bus       *events.Bus
+	token     string
+	home      string
+	shutdown  func()
+	assistant *assist.Client
 }
 
 type Option func(*server)
@@ -68,6 +70,7 @@ func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string,
 	s.habitRoutes(mux)
 	s.timerRoutes(mux)
 	s.uiRoutes(mux)
+	s.assistRoutes(mux)
 	mux.HandleFunc("GET /api/events", s.events)
 	return cors(s.auth(mux))
 }

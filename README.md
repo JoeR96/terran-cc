@@ -23,7 +23,16 @@ Your data lives in `%APPDATA%\terran-cc`: the database (`tcc.db`), the service l
 Open **Terran CC** from the Start Menu (or run `tcc-desktop`). It starts the service if needed and puts an icon in the tray. Closing every window keeps it running in the tray; use the tray menu to bring windows back or to quit.
 
 - **Dashboard**: a snap grid of widgets. Click **Edit layout** to drag widgets by their header, resize them from the corner, add or remove them. Use the board menu (top left) to make one board per monitor. Each dashboard window remembers its board, monitor and size.
-- **Side widget**: the tall always-on-top strip. Timer on top, then habits, then Today, This week and This month as height allows. Sections that don't fit fold into one line; click a name to open it.
+- **Side widget**: the always-on-top strip. Timer on top (pick a time, or 🔒 to lock in on a task), then habits. Below that:
+  - **To-dos**: a tree of Me, Work and OSRS by section, with sub to-dos. Drag to reorder or move between sections.
+  - **Goals**: project tickets set for today, this week or this month.
+  - **All projects**: a project › feature › ticket tree. Drag to reorder projects or refile tickets.
+  - **Assistant**: a chat box.
+
+  Made wider than 560 px, the habits run across the top and the rest splits into two columns.
+- **Assistant**: a chat box with a model in the loop, using OpenCode Go. Tell it things like "idea for bonanza: exploding barrels" or "osrs short term: prep for raids s4". It changes to-dos, tickets, habits and the timer through the same API as the app, and lists what it did.
+  - The key is read from opencode's `auth.json`, so connect OpenCode Go in opencode first. You can also set `TCC_OPENCODE_KEY`.
+  - The model is `glm-5.3-flash`. Change it with `TCC_ASSIST_MODEL`.
 - **Pop-outs**: the ⤢ on any widget opens it in its own small always-on-top window. 📌 toggles always-on-top.
 - **Project pages**: click a project in the top bar. Drag cards between lanes; drop a card on another in Up next to reorder. Click a card to edit it, paste a screenshot to attach it, and sign off Review items.
 - **Ctrl + mouse wheel** zooms a window, handy on 4K screens.

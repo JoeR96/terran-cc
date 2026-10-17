@@ -167,10 +167,23 @@ func (s *server) itemRoutes(mux *http.ServeMux) {
 		writeJSON(w, 200, items)
 	})
 	mux.HandleFunc("POST /api/items", func(w http.ResponseWriter, r *http.Request) {
-		var n core.NewItem
-		if err := decode(r, &n); err != nil {
+		// project_id takes a slug as well as an id, as in PATCH.
+		var body struct {
+			core.NewItem
+			ProjectID json.RawMessage `json:"project_id"`
+		}
+		if err := decode(r, &body); err != nil {
 			writeErr(w, err)
 			return
+		}
+		n := body.NewItem
+		if len(body.ProjectID) > 0 {
+			pid, err := s.projectRef(r, body.ProjectID)
+			if err != nil {
+				writeErr(w, err)
+				return
+			}
+			n.ProjectID = pid
 		}
 		it, err := s.svc.AddItem(r.Context(), n)
 		if err != nil {

@@ -216,6 +216,17 @@ func (s *Service) AddItem(ctx context.Context, n NewItem) (model.Item, error) {
 		Status: n.Status, When: n.When, Context: n.Context, Priority: n.Priority, CreatedAt: now, UpdatedAt: now,
 		DependsOn: []int64{}, Evidence: []model.Evidence{}, Attachments: []string{},
 	}
+	// A personal sub to-do goes in its parent's section unless told otherwise.
+	if n.ParentID != nil && n.ProjectID == nil {
+		if parent, err := s.Store.GetItem(ctx, *n.ParentID); err == nil && parent.ProjectID == nil {
+			if it.When == "" {
+				it.When = parent.When
+			}
+			if it.Context == "" {
+				it.Context = parent.Context
+			}
+		}
+	}
 	if it.Kind == "" {
 		it.Kind = model.KindTodo
 		if it.ProjectID != nil {

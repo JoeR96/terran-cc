@@ -8,6 +8,7 @@
   import Goals from '../components/Goals.svelte'
   import ProjectTree from '../components/ProjectTree.svelte'
   import ItemDrawer from '../components/ItemDrawer.svelte'
+  import Chat from '../components/Chat.svelte'
   import { route } from '../lib/route.svelte.js'
 
   // Wider than this, the widget shows habits across the top and splits the
@@ -69,9 +70,12 @@
       <div class="sec"><Habits wide /></div>
       <div class="cols">
         <div class="col"><TodoTree onopen={openItem} /></div>
-        <div class="col">
-          <div class="part"><Goals onopen={openItem} /></div>
-          <div class="part"><ProjectTree onopen={openItem} /></div>
+        <div class="col right">
+          <div class="scroll">
+            <div class="part"><Goals onopen={openItem} /></div>
+            <div class="part"><ProjectTree onopen={openItem} /></div>
+          </div>
+          <div class="chatbox"><Chat /></div>
         </div>
       </div>
     </div>
@@ -82,6 +86,7 @@
       <div class="sec"><TodoTree onopen={openItem} /></div>
       <div class="sec"><Goals onopen={openItem} /></div>
       <div class="sec"><ProjectTree onopen={openItem} /></div>
+      <div class="sec chatnarrow"><Chat /></div>
     </div>
   {/if}
 </div>
@@ -100,6 +105,10 @@
   .sec { padding: 8px 10px; border-bottom: 1px solid var(--line); }
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 10px; }
   .col { min-height: 0; overflow-y: auto; background: var(--bg); border-radius: 7px; padding: 8px 10px; }
+  .col.right { display: flex; flex-direction: column; overflow: hidden; }
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  .chatbox { flex: none; height: 42%; min-height: 160px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .chatnarrow { height: 320px; }
   .part { padding: 0 0 8px; }
   .part + .part { border-top: 1px solid var(--line); padding-top: 8px; }
   .lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: var(--panel); border-radius: 0; padding: 16px; }

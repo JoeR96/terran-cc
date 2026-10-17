@@ -93,6 +93,20 @@ func TestParentMustShareProject(t *testing.T) {
 	}
 }
 
+// A sub to-do lands next to its parent unless told otherwise.
+func TestSubTodoInheritsWhenAndContext(t *testing.T) {
+	s, _ := newSvc(t)
+	raid, _ := s.AddItem(ctx, NewItem{Title: "Prep for raids S4", When: model.WhenWeek, Context: model.ContextOSRS})
+	mace, err := s.AddItem(ctx, NewItem{Title: "Get inquisitor mace", ParentID: &raid.ID})
+	if err != nil || mace.When != model.WhenWeek || mace.Context != model.ContextOSRS {
+		t.Fatalf("%+v %v", mace, err)
+	}
+	own, _ := s.AddItem(ctx, NewItem{Title: "today bit", ParentID: &raid.ID, When: model.WhenToday})
+	if own.When != model.WhenToday || own.Context != model.ContextOSRS {
+		t.Fatalf("explicit when lost: %+v", own)
+	}
+}
+
 func TestPromoteTodo(t *testing.T) {
 	s, _ := newSvc(t)
 	p := mustProject(t, s)
