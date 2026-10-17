@@ -67,14 +67,37 @@ func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string,
 	s.itemRoutes(mux)
 	s.habitRoutes(mux)
 	s.timerRoutes(mux)
+	s.uiRoutes(mux)
 	mux.HandleFunc("GET /api/events", s.events)
-	return s.auth(mux)
+	return cors(s.auth(mux))
+}
+
+// cors lets the desktop and browser frontends call the API from their own
+// origin. Every call except health needs the bearer token and no cookies are
+// used, so allowing any origin grants nothing without the token.
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", "*")
+		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/health" {
 			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			// A browser EventSource can't set headers, so the event stream
+			// also takes the token from the query.
+			if got == "" && r.URL.Path == "/api/events" {
+				got = r.URL.Query().Get("token")
+			}
 			if subtle.ConstantTimeCompare([]byte(got), []byte(s.token)) != 1 {
 				writeJSON(w, 401, map[string]string{"error": "missing or wrong token"})
 				return

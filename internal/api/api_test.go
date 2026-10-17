@@ -340,3 +340,69 @@ func TestHealthIncludesHome(t *testing.T) {
 		t.Fatalf("%v", m)
 	}
 }
+
+func TestCORSPreflight(t *testing.T) {
+	e := setup(t)
+	req, _ := http.NewRequest("OPTIONS", e.srv.URL+"/api/items", nil)
+	req.Header.Set("Origin", "http://wails.localhost")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 204 || resp.Header.Get("Access-Control-Allow-Origin") != "*" ||
+		!strings.Contains(resp.Header.Get("Access-Control-Allow-Headers"), "Authorization") {
+		t.Fatalf("%d %v", resp.StatusCode, resp.Header)
+	}
+	// Normal responses carry the header too, including errors.
+	resp, _ = http.Get(e.srv.URL + "/api/items")
+	resp.Body.Close()
+	if resp.StatusCode != 401 || resp.Header.Get("Access-Control-Allow-Origin") != "*" {
+		t.Fatalf("%d %v", resp.StatusCode, resp.Header)
+	}
+}
+
+func TestEventsTokenQuery(t *testing.T) {
+	e := setup(t)
+	resp, err := http.Get(e.srv.URL + "/api/events?token=" + tok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("events with ?token: %d", resp.StatusCode)
+	}
+	// Only the event stream takes the token from the query.
+	resp, _ = http.Get(e.srv.URL + "/api/items?token=" + tok)
+	resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Fatalf("items with ?token: %d", resp.StatusCode)
+	}
+}
+
+func TestUIState(t *testing.T) {
+	e := setup(t)
+	var got any
+	if code := e.do(t, "GET", "/api/ui/boards", nil, &got); code != 200 || got != nil {
+		t.Fatalf("unset: %d %v", code, got)
+	}
+	boards := []any{map[string]any{"id": "main", "name": "Main", "widgets": []any{}}}
+	if code := e.do(t, "PUT", "/api/ui/boards", boards, nil); code != 200 {
+		t.Fatalf("put %d", code)
+	}
+	var back []map[string]any
+	if code := e.do(t, "GET", "/api/ui/boards", nil, &back); code != 200 || len(back) != 1 || back[0]["name"] != "Main" {
+		t.Fatalf("get %d %v", code, back)
+	}
+	if code := e.do(t, "GET", "/api/ui/nope", nil, nil); code != 404 {
+		t.Fatalf("unknown key %d", code)
+	}
+	req, _ := http.NewRequest("PUT", e.srv.URL+"/api/ui/windows", strings.NewReader("{not json"))
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, _ := http.DefaultClient.Do(req)
+	resp.Body.Close()
+	if resp.StatusCode != 400 {
+		t.Fatalf("bad json %d", resp.StatusCode)
+	}
+}
