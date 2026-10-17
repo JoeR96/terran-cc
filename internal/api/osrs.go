@@ -5,14 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"time"
 
+	"terrancc/internal/core"
 	"terrancc/internal/events"
+	"terrancc/internal/model"
 	"terrancc/internal/osrs"
+	"terrancc/internal/store"
 )
 
 // OSRSConfigKey is the settings key the OSRS config is persisted under.
@@ -35,7 +39,10 @@ func WithOSRS(svc *osrs.Service, wiki string) Option {
 			svc.Save = SaveOSRS(func(k, v string) error { return s.svc.Store.SetSetting(context.Background(), k, v) })
 		}
 		if svc.OnChange == nil {
-			svc.OnChange = func() { s.bus.Publish(events.Event{Type: "osrs.changed"}) }
+			svc.OnChange = func() {
+				s.syncOSRS()
+				s.bus.Publish(events.Event{Type: "osrs.changed"})
+			}
 		}
 		if svc.OnReady == nil {
 			svc.OnReady = func(r osrs.Run) { s.bus.Publish(events.Event{Type: "osrs.ready", Data: r}) }
@@ -56,9 +63,19 @@ func (s *server) osrsRoutes(mux *http.ServeMux) {
 		return true
 	}
 	mux.HandleFunc("GET /api/osrs", func(w http.ResponseWriter, r *http.Request) {
-		if need(w) {
-			writeJSON(w, 200, s.osrs.Status())
+		if !need(w) {
+			return
 		}
+		// Pieces is each material to-do's bank count, e.g. 412 of 716 nails.
+		items, err := s.osrsItems(r.Context())
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, 200, struct {
+			osrs.Status
+			Pieces map[int64]osrs.Piece `json:"pieces"`
+		}{s.osrs.Status(), osrs.Materials(items, s.osrs.Facts().Have)})
 	})
 	mux.HandleFunc("GET /api/osrs/config", func(w http.ResponseWriter, r *http.Request) {
 		if need(w) {
@@ -102,6 +119,41 @@ func (s *server) osrsRoutes(mux *http.ServeMux) {
 		w.Header().Set("Cache-Control", "max-age=604800")
 		http.ServeFile(w, r, path)
 	})
+}
+
+func (s *server) osrsItems(ctx context.Context) ([]model.Item, error) {
+	c := model.ContextOSRS
+	return s.svc.Store.ListItems(ctx, store.ItemFilter{Context: &c})
+}
+
+// syncOSRS ticks off or retitles OSRS to-dos the game data has settled:
+// collection log drops, bank materials, levels and diary progress.
+func (s *server) syncOSRS() {
+	s.osrsSync.Lock()
+	defer s.osrsSync.Unlock()
+	ctx := context.Background()
+	items, err := s.osrsItems(ctx)
+	if err != nil {
+		log.Printf("osrs sync: %v", err)
+		return
+	}
+	for _, c := range osrs.Plan(items, s.osrs.Facts()) {
+		if c.Title != "" {
+			t := c.Title
+			if _, err := s.svc.EditItem(ctx, c.ID, core.ItemPatch{Title: &t}); err != nil {
+				log.Printf("osrs sync #%d: %v", c.ID, err)
+				continue
+			}
+		}
+		if c.Done {
+			if c.Why != "" {
+				s.svc.AppendNote(ctx, c.ID, "Ticked automatically. "+c.Why)
+			}
+			if _, err := s.svc.DoneItem(ctx, c.ID); err != nil {
+				log.Printf("osrs sync #%d: %v", c.ID, err)
+			}
+		}
+	}
 }
 
 // fetchIcon downloads one wiki image into the icon cache.

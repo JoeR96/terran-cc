@@ -10,8 +10,9 @@
   const GROUPS = [
     { ctx: 'irl', name: 'Me', hz: [['today', 'Today'], ['week', 'This week'], ['month', 'This month']] },
     { ctx: 'work', name: 'Work', hz: [['today', 'Today'], ['week', 'This week'], ['month', 'This month']] },
-    // OSRS goals reuse the "when" buckets: short = week, medium = month, long = anytime.
-    { ctx: 'osrs', name: 'OSRS', hz: [['today', 'Today'], ['week', 'Short term'], ['month', 'Medium term'], ['anytime', 'Long term']] },
+    // OSRS keeps only Today here; its short, medium and long term goals live
+    // in the OSRS tab, with their pieces and progress.
+    { ctx: 'osrs', name: 'OSRS', hz: [['today', 'Today']], note: 'Goals live in the OSRS tab' },
   ]
   const OPEN_KEY = 'tcc.todo.open'
   const SHUT_KEY = 'tcc.todo.shut'
@@ -223,6 +224,7 @@
     <span class="caret">{open.includes(gk) ? '▾' : '▸'}</span><b>{g.name}</b><span class="faint n">{g.hz.reduce((n, [w]) => n + openIn(trees[`${g.ctx}:${w}`]), 0)}</span>
   </button>
   {#if open.includes(gk)}
+    {#if g.note}<div class="row gnote faint" style="padding-left:14px">{g.note}</div>{/if}
     {#each g.hz as [w, label] (w)}
       {@const hk = `h:${g.ctx}:${w}`}
       {@const nodes = trees[`${g.ctx}:${w}`]}
@@ -265,6 +267,7 @@
   .ctag { flex: none; font-size: 9.5px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: var(--btn); color: var(--muted); }
   .ctag.work { background: var(--blue-bg); color: var(--blue); }
   .ctag.osrs { background: var(--yellow-bg); color: var(--yellow); }
+  .gnote { font-size: 10.5px; }
   .sep { border-top: 1px solid var(--line); margin: 5px 0; }
   .over { box-shadow: inset 0 2px 0 var(--accent); }
   .grp, .t { cursor: grab; }

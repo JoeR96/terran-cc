@@ -349,6 +349,38 @@ func TestOSRSRoutes(t *testing.T) {
 	}
 }
 
+func TestOSRSTicksMaterialsFromTheBank(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "Data Exports"), 0o755)
+	os.WriteFile(filepath.Join(dir, "Data Exports", "container_bank.json"), []byte(`{"id":4823,"quantity":900,"name":"Adamantite nails"}`+"\n"+`{"id":1,"quantity":3,"name":"Camphor plank"}`+"\n"), 0o644)
+	cfg := osrs.DefaultConfig()
+	cfg.RuneLite = dir
+	o := osrs.NewService(cfg)
+	e := setupWith(t, WithOSRS(o, ""))
+	var boat, nails, planks model.Item
+	e.do(t, "POST", "/api/items", map[string]any{"title": "Great white shark boat", "context": "osrs", "when": "week"}, &boat)
+	e.do(t, "POST", "/api/items", map[string]any{"title": "716 adamantite nails", "parent_id": boat.ID}, &nails)
+	e.do(t, "POST", "/api/items", map[string]any{"title": "26 camphor planks", "parent_id": boat.ID}, &planks)
+
+	o.Poll() // reads the bank and syncs the goals
+	var got model.Item
+	e.do(t, "GET", fmt.Sprintf("/api/items/%d", nails.ID), nil, &got)
+	if got.Status != model.StatusDone || !strings.Contains(got.Notes, "900 in the bank") {
+		t.Fatalf("nails %+v", got)
+	}
+	e.do(t, "GET", fmt.Sprintf("/api/items/%d", planks.ID), nil, &got)
+	if got.Status == model.StatusDone {
+		t.Fatal("3 of 26 planks is not done")
+	}
+	var st struct {
+		Pieces map[string]osrs.Piece `json:"pieces"`
+	}
+	e.do(t, "GET", "/api/osrs", nil, &st)
+	if p := st.Pieces[fmt.Sprint(planks.ID)]; p != (osrs.Piece{Have: 3, Need: 26}) {
+		t.Fatalf("pieces %+v", st.Pieces)
+	}
+}
+
 func TestVaultSearchAndRead(t *testing.T) {
 	vault := t.TempDir()
 	os.MkdirAll(filepath.Join(vault, "Hobbies", "OSRS"), 0o755)

@@ -31,6 +31,7 @@ type Status struct {
 	Stock    []Stock         `json:"stock"`
 	AFK      []string        `json:"afk"`
 	Skills   []SkillProgress `json:"skills"`
+	Bones    Bones           `json:"bones"`
 	Warnings []string        `json:"warnings"`
 }
 
@@ -38,6 +39,7 @@ type Updated struct {
 	Timers *time.Time `json:"timers"` // newest change RuneLite recorded
 	Bank   *time.Time `json:"bank"`   // when the bank export was written
 	Skills *time.Time `json:"skills"` // when the hiscores were read
+	Log    *time.Time `json:"log"`    // collection log and diaries
 }
 
 // Service keeps the latest view of the RuneLite files and hiscores.
@@ -60,6 +62,10 @@ type Service struct {
 	skillsAt time.Time
 	mods     map[string]time.Time
 	states   map[string]string
+	obtained map[string]bool
+	names    map[int]string
+	diaries  map[string]Diary
+	extrasAt time.Time
 }
 
 func NewService(cfg Config) *Service {
@@ -204,6 +210,41 @@ func (s *Service) readSkills(ctx context.Context) {
 	s.changed()
 }
 
+// readExtras reads the collection log and diary progress.
+func (s *Service) readExtras(ctx context.Context) {
+	s.mu.Lock()
+	account, names := s.cfg.Account, s.names
+	s.mu.Unlock()
+	got, names, err := fetchObtained(ctx, s.HTTP, account, s.Version, names)
+	if err != nil {
+		log.Printf("osrs: collection log: %v", err)
+	}
+	diaries, derr := fetchDiaries(ctx, s.HTTP, account, s.Version)
+	if derr != nil {
+		log.Printf("osrs: diaries: %v", derr)
+	}
+	s.mu.Lock()
+	s.names = names
+	if err == nil {
+		s.obtained = got
+	}
+	if derr == nil {
+		s.diaries = diaries
+	}
+	if err == nil || derr == nil {
+		s.extrasAt = s.Now()
+	}
+	s.mu.Unlock()
+	s.changed()
+}
+
+// Facts is what the game data says, for Plan.
+func (s *Service) Facts() Facts {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return Facts{Obtained: s.obtained, Have: s.have, XP: s.skills, Diaries: s.diaries}
+}
+
 // Status is the current view.
 func (s *Service) Status() Status {
 	s.mu.Lock()
@@ -216,6 +257,11 @@ func (s *Service) Status() Status {
 		t := s.timers.Newest
 		st.Updated.Timers = &t
 	}
+	if !s.extrasAt.IsZero() {
+		t := s.extrasAt
+		st.Updated.Log = &t
+	}
+	st.Bones = bonesIn(s.have)
 	if s.have != nil {
 		st.Stock = Stocks(s.cfg.Stock, s.have)
 		t := s.bankAt
@@ -260,12 +306,23 @@ func (s *Service) checkReady() bool {
 	return moved
 }
 
+// Poll rereads changed files now, as the watch loop does every 2 seconds.
+func (s *Service) Poll() {
+	if s.refresh() {
+		s.checkReady()
+		s.changed()
+	}
+}
+
 // Run watches the files every 2 seconds, rechecks ready times every 30 and
 // reads the hiscores every 10 minutes, until ctx is done.
 func (s *Service) Run(ctx context.Context) {
 	s.refresh()
 	s.checkReady()
 	go s.readSkills(ctx)
+	go s.readExtras(ctx)
+	extras := time.NewTicker(extrasEvery)
+	defer extras.Stop()
 	files := time.NewTicker(2 * time.Second)
 	clock := time.NewTicker(30 * time.Second)
 	skills := time.NewTicker(skillsEvery)
@@ -287,6 +344,8 @@ func (s *Service) Run(ctx context.Context) {
 			}
 		case <-skills.C:
 			go s.readSkills(ctx)
+		case <-extras.C:
+			go s.readExtras(ctx)
 		}
 	}
 }

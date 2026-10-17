@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"terrancc/internal/assist"
@@ -23,7 +24,7 @@ import (
 )
 
 // Version is a var so tests can build an "older" tccd with -ldflags -X.
-var Version = "0.7.0"
+var Version = "0.8.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
@@ -39,6 +40,7 @@ type server struct {
 	osrs      *osrs.Service
 	wiki      string
 	vault     string
+	osrsSync  sync.Mutex
 }
 
 type Option func(*server)

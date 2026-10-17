@@ -47,11 +47,9 @@ func DefaultStock() []StockItem {
 		item("brew", "Saradomin brew (doses)", "Saradomin_brew(4).png", []string{"Saradomin brew"}, true, nil, 1200),
 		item("ranging", "Ranging potion (doses)", "Ranging_potion(4).png", []string{"Ranging potion"}, true, nil, 800),
 		item("super-combat", "Super combat (doses)", "Super_combat_potion(4).png", []string{"Super combat potion"}, true, nil, 400),
-		item("anti-venom", "Anti-venom (doses)", "Anti-venom(4).png", []string{"Anti-venom"}, true, nil, 400),
+		item("anti-venom", "Anti-venom, all kinds (doses)", "Anti-venom+(4).png", []string{"Anti-venom", "Anti-venom+", "Extended anti-venom+"}, true, nil, 400),
 		item("karambwan", "Karambwan", "Cooked_karambwan.png", []string{"Cooked karambwan"}, false, []string{"Raw karambwan"}, 500),
-		// Sailing-era potions: +6 Fishing for the Morytania elite shark, and
-		// stamina for long trips. Both use trawled secondaries.
-		item("super-fishing", "Super fishing potion (doses)", "Super_fishing_potion(4).png", []string{"Super fishing potion"}, true, nil, 100),
+		// Sailing-era stamina for long trips, made with trawled marlin scales.
 		item("extended-stamina", "Extended stamina (doses)", "Extended_stamina_potion(4).png", []string{"Extended stamina potion"}, true, nil, 400),
 	}
 }

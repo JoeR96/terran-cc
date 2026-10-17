@@ -26,6 +26,30 @@
   }
   const patchText = (p, now) => (p.state === 'growing' ? runText({ state: 'growing', ready_at: p.ready_at }, now) : p.state)
 
+  // Goals open to show their pieces; new goals and pieces are added here
+  // rather than in the to-do tree.
+  let openGoals = $state((() => { try { return JSON.parse(localStorage.getItem('tcc.osrs.goals')) || [] } catch { return [] } })())
+  function toggleGoal(id) {
+    openGoals = openGoals.includes(id) ? openGoals.filter(x => x !== id) : [...openGoals, id]
+    try {
+      localStorage.setItem('tcc.osrs.goals', JSON.stringify(openGoals))
+    } catch {}
+  }
+  let adding = $state(null) // {when, parent}
+  let draft2 = $state('')
+  function startAdd(when, parent) {
+    adding = { when, parent }
+    draft2 = ''
+    if (parent && !openGoals.includes(parent)) toggleGoal(parent)
+  }
+  async function addGoal() {
+    const t = draft2.trim()
+    if (!t) return (adding = null)
+    draft2 = ''
+    const a = adding
+    await act.addItem({ title: t, kind: 'todo', ...(a.parent ? { parent_id: a.parent } : { context: 'osrs', when: a.when }) })
+  }
+
   let editing = $state(null) // {key, field}
   let draft = $state('')
   async function saveNumber() {
@@ -42,6 +66,15 @@
     act.osrsConfig(cfg)
   }
 </script>
+
+{#snippet addRow()}
+  <div class="row piece">
+    <span></span>
+    <input class="addin" placeholder={adding.parent ? 'Piece, e.g. "716 adamantite nails" or "Bandos hilt"' : 'New goal'} bind:value={draft2}
+      onkeydown={e => { if (e.key === 'Enter') addGoal(); if (e.key === 'Escape') adding = null }}
+      onblur={() => { if (!draft2.trim()) adding = null }} use:select />
+  </div>
+{/snippet}
 
 {#snippet num(s, field)}
   {#if editing?.key === s.key && editing.field === field}
@@ -106,7 +139,7 @@
       <img src={osrsIcon(s.icon)} alt="" onerror={hide} />
       <span class="nm">{s.skill} → {s.level}</span>
       <div class="bar skill" class:full={s.done}><span class="st" style="width:{b.start}%"></span><i style="left:{b.start}%;width:{b.gain}%"></i></div>
-      <span class="vals"><strong>{s.current_level}</strong> · {s.done ? 'done' : short(s.to_go) + ' to go'}{#if s.progress} · <span class="good">+{short(s.progress)}</span>{/if}</span>
+      <span class="vals"><strong>{s.current_level}</strong> · {s.done ? 'done' : short(s.to_go) + ' to go'}{#if s.progress} · <span class="good">+{short(s.progress)}</span>{/if}{#if s.skill === 'Prayer' && o.bones?.xp} · <span class="cook" title="{o.bones.count} bones in the bank, at a gilded altar (3.5x)">bones ≈ {short(o.bones.xp)}</span>{/if}</span>
     </div>
   {:else}
     <div class="faint">Waiting for the hiscores…</div>
@@ -115,17 +148,36 @@
   <h6>Goals <span>pieces</span></h6>
   {#each HZ as [w, label] (w)}
     {@const list = goals.filter(g => g.when === w)}
-    {#if list.length}
-      <div class="hz faint">{label}</div>
-      {#each list as g (g.id)}
-        <div class="row goal" role="button" tabindex="0" onclick={() => onopen?.(db.items.find(i => i.id === g.id))} onkeydown={() => {}}>
-          <img src={osrsIcon(goalIcon(g.title))} alt="" onerror={hide} />
-          <span class="nm" title={g.title}>{g.title}</span>
-          <div class="bar pieces" class:full={g.done === g.total}><i style="width:{(100 * g.done) / g.total}%"></i></div>
-          <span class="vals"><strong>{g.done}</strong> / {g.total}</span>
-        </div>
-      {/each}
-    {/if}
+    <div class="hz faint">{label} <button class="ghost add" title="Add a {label.toLowerCase()} goal" onclick={() => startAdd(w, null)}>+</button></div>
+    {#each list as g (g.id)}
+      {@const isOpen = openGoals.includes(g.id)}
+      {@const kids = db.items.filter(k => k.parent_id === g.id)}
+      <div class="row goal">
+        <img src={osrsIcon(goalIcon(g.title))} alt="" onerror={hide} />
+        <button class="ghost nm gname" title={g.title} onclick={() => toggleGoal(g.id)}><span class="caret">{kids.length ? (isOpen ? '▾' : '▸') : ''}</span>{g.title}</button>
+        <div class="bar pieces" class:full={g.done === g.total}><i style="width:{(100 * g.done) / g.total}%"></i></div>
+        <span class="vals"><strong>{g.done}</strong> / {g.total} <button class="ghost open" title="Open" onclick={() => onopen?.(db.items.find(i => i.id === g.id))}>↗</button></span>
+      </div>
+      {#if isOpen}
+        {#each kids as k (k.id)}
+          {@const pc = o.pieces?.[k.id]}
+          <div class="row piece" class:done={k.status === 'done'}>
+            <button class="box" class:on={k.status === 'done'} aria-label="Done" onclick={() => (k.status === 'done' ? act.reopen(k.id) : act.done(k.id))}></button>
+            <span class="nm" title={k.title}>{k.title}</span>
+            {#if pc}
+              <div class="bar pieces" class:full={pc.have >= pc.need}><i style="width:{Math.min(100, (100 * pc.have) / pc.need)}%"></i></div>
+              <span class="vals"><strong>{short(pc.have)}</strong> / {short(pc.need)}</span>
+            {:else}
+              <span></span><span></span>
+            {/if}
+          </div>
+        {/each}
+        {#if adding?.parent === g.id}{@render addRow()}{:else}
+          <div class="row piece"><span></span><button class="ghost add left" onclick={() => startAdd(g.when, g.id)}>+ piece</button></div>
+        {/if}
+      {/if}
+    {/each}
+    {#if adding && !adding.parent && adding.when === w}{@render addRow()}{/if}
   {/each}
 
   <h6>AFK fallbacks</h6>
@@ -164,8 +216,15 @@
   .row { display: grid; grid-template-columns: 22px minmax(90px, 160px) 1fr auto; gap: 8px; align-items: center; min-height: 24px; }
   .row img { width: 20px; height: 20px; object-fit: contain; }
   .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .goal { cursor: pointer; }
-  .goal:hover .nm { color: var(--strong); }
+  .gname { text-align: left; color: var(--text); padding: 0; display: flex; gap: 4px; }
+  .gname:hover { background: none; color: var(--strong); }
+  .gname .caret { width: 10px; color: var(--muted); flex: none; }
+  .piece { padding-left: 30px; grid-template-columns: 14px minmax(90px, 1fr) 120px auto; }
+  .piece.done .nm { text-decoration: line-through; color: var(--faint); }
+  .open { padding: 0 3px; font-size: 10px; }
+  .add { padding: 0 5px; font-size: 11px; }
+  .add.left { justify-self: start; color: var(--faint); }
+  .addin { grid-column: 2 / -1; padding: 1px 5px; }
   .bar { position: relative; height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
   .bar i { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); }
   .bar b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); }
