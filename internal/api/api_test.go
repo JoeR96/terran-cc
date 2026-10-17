@@ -467,6 +467,11 @@ func TestUIState(t *testing.T) {
 	if code := e.do(t, "GET", "/api/ui/boards", nil, &back); code != 200 || len(back) != 1 || back[0]["name"] != "Main" {
 		t.Fatalf("get %d %v", code, back)
 	}
+	var note string
+	e.do(t, "PUT", "/api/ui/notes", "pasted\nstuff", nil)
+	if code := e.do(t, "GET", "/api/ui/notes", nil, &note); code != 200 || note != "pasted\nstuff" {
+		t.Fatalf("notes: %d %q", code, note)
+	}
 	if code := e.do(t, "GET", "/api/ui/nope", nil, nil); code != 404 {
 		t.Fatalf("unknown key %d", code)
 	}

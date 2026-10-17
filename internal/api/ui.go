@@ -9,9 +9,10 @@ import (
 )
 
 // uiKeys are the frontend state documents tccd stores for the clients:
-// boards (dashboard layouts) and windows (which windows are open, where).
+// boards (dashboard layouts), windows (which windows are open, where) and
+// notes (the side widget scratchpad, a JSON string).
 // tccd keeps them as opaque JSON; the shape belongs to the frontend.
-var uiKeys = map[string]bool{"boards": true, "windows": true}
+var uiKeys = map[string]bool{"boards": true, "windows": true, "notes": true}
 
 func (s *server) uiRoutes(mux *http.ServeMux) {
 	key := func(w http.ResponseWriter, r *http.Request) (string, bool) {

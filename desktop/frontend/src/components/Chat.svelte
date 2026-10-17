@@ -56,7 +56,7 @@
 </script>
 
 <div class="chat">
-  <h6>Assistant {#if chat.msgs.length}<button class="ghost new" title="Start a new conversation" onclick={reset}>new</button>{/if}</h6>
+  {#if chat.msgs.length}<button class="ghost new" title="Start a new conversation" onclick={reset}>new chat</button>{/if}
   <div class="log" bind:this={log}>
     {#each chat.msgs as m, i (i)}
       <div class="m {m.role}" class:err={m.error}>
@@ -85,8 +85,8 @@
 </div>
 
 <style>
-  .chat { display: flex; flex-direction: column; min-height: 0; height: 100%; }
-  .new { font-size: 10px; letter-spacing: 0; text-transform: none; padding: 0 5px; }
+  .chat { display: flex; flex-direction: column; min-height: 0; height: 100%; position: relative; }
+  .new { position: absolute; top: -24px; right: 0; font-size: 10px; padding: 0 5px; }
   .log { flex: 1; min-height: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 0 6px; user-select: text; }
   .m { max-width: 92%; padding: 4px 8px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
   .m.user { align-self: flex-end; background: var(--btn); }

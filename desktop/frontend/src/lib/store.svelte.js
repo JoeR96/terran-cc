@@ -13,6 +13,7 @@ export const db = $state({
   projects: [],
   timer: null,
   boards: [],
+  notes: '', // the side widget scratchpad
   phaseEnded: 0, // bumps on timer.phase so a view can chime
 })
 
@@ -31,6 +32,9 @@ const loaders = {
   },
   async timer() {
     db.timer = await api('GET', '/api/timer')
+  },
+  async notes() {
+    db.notes = (await api('GET', '/api/ui/notes')) || ''
   },
   async boards() {
     db.boards = (await api('GET', '/api/ui/boards')) || defaultBoards()
@@ -75,7 +79,7 @@ export function start() {
         case 'habit.changed': reload('habits'); break
         case 'timer.tick': db.timer = e.data; break
         case 'timer.phase': db.timer = e.data; db.phaseEnded++; break
-        case 'ui.changed': if (e.data === 'boards') reload('boards'); break
+        case 'ui.changed': if (e.data === 'boards' || e.data === 'notes') reload(e.data); break
       }
     },
     () => {

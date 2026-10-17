@@ -9,6 +9,7 @@
   import ProjectTree from '../components/ProjectTree.svelte'
   import ItemDrawer from '../components/ItemDrawer.svelte'
   import Chat from '../components/Chat.svelte'
+  import Notes from '../components/Notes.svelte'
   import { route } from '../lib/route.svelte.js'
 
   // Wider than this, the widget shows habits across the top and splits the
@@ -36,7 +37,31 @@
     menu = false
   }
   const openItem = it => (drawer = it.id)
+
+  // The bottom-right box holds the assistant or the notes scratchpad.
+  const read = () => {
+    try {
+      return localStorage.getItem('tcc.side.tab') || 'chat'
+    } catch {
+      return 'chat'
+    }
+  }
+  let tab = $state(read())
+  function setTab(t) {
+    tab = t
+    try {
+      localStorage.setItem('tcc.side.tab', t)
+    } catch {}
+  }
 </script>
+
+{#snippet box()}
+  <div class="tabs">
+    <button class="ghost" class:on={tab === 'chat'} onclick={() => setTab('chat')}>Assistant</button>
+    <button class="ghost" class:on={tab === 'notes'} onclick={() => setTab('notes')}>Notes</button>
+  </div>
+  <div class="tabbody">{#if tab === 'notes'}<Notes />{:else}<Chat />{/if}</div>
+{/snippet}
 
 <div class="sw" bind:clientWidth={width}>
   <div class="hd drag">
@@ -75,7 +100,7 @@
             <div class="part"><Goals onopen={openItem} /></div>
             <div class="part"><ProjectTree onopen={openItem} /></div>
           </div>
-          <div class="chatbox"><Chat /></div>
+          <div class="chatbox">{@render box()}</div>
         </div>
       </div>
     </div>
@@ -86,7 +111,7 @@
       <div class="sec"><TodoTree onopen={openItem} /></div>
       <div class="sec"><Goals onopen={openItem} /></div>
       <div class="sec"><ProjectTree onopen={openItem} /></div>
-      <div class="sec chatnarrow"><Chat /></div>
+      <div class="sec chatnarrow">{@render box()}</div>
     </div>
   {/if}
 </div>
@@ -109,6 +134,11 @@
   .scroll { flex: 1; min-height: 0; overflow-y: auto; }
   .chatbox { flex: none; height: 42%; min-height: 160px; border-top: 1px solid var(--line); padding-top: 8px; }
   .chatnarrow { height: 320px; }
+  .chatbox, .chatnarrow { display: flex; flex-direction: column; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 6px; flex: none; }
+  .tabs button { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; padding: 1px 6px; }
+  .tabs button.on { color: var(--text); background: var(--btn); }
+  .tabbody { flex: 1; min-height: 0; }
   .part { padding: 0 0 8px; }
   .part + .part { border-top: 1px solid var(--line); padding-top: 8px; }
   .lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: var(--panel); border-radius: 0; padding: 16px; }
