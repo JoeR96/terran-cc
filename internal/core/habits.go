@@ -2,7 +2,7 @@ package core
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -108,7 +108,7 @@ func (s *Service) FindHabit(ctx context.Context, ref string) (model.Habit, error
 	}
 	switch len(matches) {
 	case 0:
-		return model.Habit{}, errors.Join(store.ErrNotFound, errors.New("no habit matches "+strconv.Quote(ref)))
+		return model.Habit{}, fmt.Errorf("%w: no habit matches %q", store.ErrNotFound, ref)
 	case 1:
 		return matches[0], nil
 	}
@@ -159,10 +159,13 @@ func (s *Service) AddHabit(ctx context.Context, h model.Habit) (model.Habit, err
 }
 
 type HabitPatch struct {
-	Name, Icon, Unit *string
-	Target, Step     *float64
-	Order            *int
-	Archived         *bool
+	Name     *string  `json:"name,omitempty"`
+	Icon     *string  `json:"icon,omitempty"`
+	Unit     *string  `json:"unit,omitempty"`
+	Target   *float64 `json:"target,omitempty"`
+	Step     *float64 `json:"step,omitempty"`
+	Order    *int     `json:"order,omitempty"`
+	Archived *bool    `json:"archived,omitempty"`
 }
 
 func (s *Service) EditHabit(ctx context.Context, id int64, p HabitPatch) (model.Habit, error) {

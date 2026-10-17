@@ -63,8 +63,11 @@ func (s *Service) AddProject(ctx context.Context, name, slug, desc, repo string)
 }
 
 type ProjectPatch struct {
-	Name, Slug, Description, RepoPath *string
-	Archived                          *bool
+	Name        *string `json:"name,omitempty"`
+	Slug        *string `json:"slug,omitempty"`
+	Description *string `json:"description,omitempty"`
+	RepoPath    *string `json:"repo_path,omitempty"`
+	Archived    *bool   `json:"archived,omitempty"`
 }
 
 func (s *Service) EditProject(ctx context.Context, id int64, pp ProjectPatch) (model.Project, error) {
