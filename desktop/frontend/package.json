@@ -1,0 +1,16 @@
+{
+  "name": "terran-cc-desktop",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "5.0.3",
+    "svelte": "5.28.2",
+    "vite": "6.3.5",
+    "vitest": "3.1.2"
+  }
+}
