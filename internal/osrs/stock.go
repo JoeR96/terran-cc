@@ -17,8 +17,11 @@ type StockItem struct {
 	Names []string `json:"names"` // bank item names that count
 	// Doses counts potions by the dose: "Prayer potion" matches
 	// "Prayer potion(1)" to "(4)" and adds up the doses.
-	Doses      bool     `json:"doses,omitempty"`
-	Raw        []string `json:"raw,omitempty"` // shown beside, not counted
+	Doses bool     `json:"doses,omitempty"`
+	Raw   []string `json:"raw,omitempty"` // shown beside, not counted
+	// Recipes say how the bank's materials turn into this item; what they
+	// could make counts towards sufficient and target.
+	Recipes    []Recipe `json:"recipes,omitempty"`
 	Sufficient int      `json:"sufficient"`
 	Target     int      `json:"target"`
 }
@@ -26,9 +29,11 @@ type StockItem struct {
 // Stock is a StockItem with what the bank holds now.
 type Stock struct {
 	StockItem
-	Have   int    `json:"have"`
-	RawHas int    `json:"raw_have"`
-	Status string `json:"status"` // low | ok | full
+	Have     int    `json:"have"`
+	RawHas   int    `json:"raw_have"`
+	Makeable int    `json:"makeable"` // more the materials could make
+	Parts    []Part `json:"parts"`    // every material in the recipe chain
+	Status   string `json:"status"`   // low | ok | full, counting what can be made
 }
 
 // DefaultStock is the list agreed with Joe on 2026-10-17. Sufficient is 5%
@@ -40,8 +45,8 @@ func DefaultStock() []StockItem {
 	return []StockItem{
 		item("anglerfish", "Anglerfish", "Anglerfish.png", []string{"Anglerfish"}, false, []string{"Raw anglerfish"}, 20000),
 		// Finished ammo is what counts; the tips beside it are the raw stage.
-		item("amethyst-arrows", "Amethyst arrows", "Amethyst_arrow_5.png", []string{"Amethyst arrow"}, false, []string{"Amethyst arrowtips"}, 20000),
-		item("amethyst-darts", "Amethyst darts", "Amethyst_dart.png", []string{"Amethyst dart"}, false, []string{"Amethyst dart tip"}, 5000),
+		withRecipes(item("seeking-arrows", "Seeking amethyst arrows", "Seeking_amethyst_arrow_5.png", []string{"Seeking amethyst arrow"}, false, nil, 20000), seekingArrowRecipes()),
+		withRecipes(item("amethyst-darts", "Amethyst darts", "Amethyst_dart.png", []string{"Amethyst dart"}, false, nil, 5000), dartRecipes()),
 		item("house-tabs", "House teleports", "Teleport_to_house_(tablet).png", []string{"Teleport to house"}, false, nil, 1000),
 		item("prayer", "Prayer potion (doses)", "Prayer_potion(4).png", []string{"Prayer potion"}, true, nil, 1200),
 		item("restore", "Super restore (doses)", "Super_restore(4).png", []string{"Super restore"}, true, nil, 1200),
@@ -53,6 +58,11 @@ func DefaultStock() []StockItem {
 		// Sailing-era stamina for long trips, made with trawled marlin scales.
 		item("extended-stamina", "Extended stamina (doses)", "Extended_stamina_potion(4).png", []string{"Extended stamina potion"}, true, nil, 400),
 	}
+}
+
+func withRecipes(it StockItem, r []Recipe) StockItem {
+	it.Recipes = r
+	return it
 }
 
 // DefaultAFK is Joe's fallback list of AFK methods.
@@ -103,11 +113,16 @@ func count(have map[string]int, names []string, doses bool) int {
 func Stocks(items []StockItem, have map[string]int) []Stock {
 	out := make([]Stock, 0, len(items))
 	for _, it := range items {
-		s := Stock{StockItem: it, Have: count(have, it.Names, it.Doses), RawHas: count(have, it.Raw, false)}
+		s := Stock{StockItem: it, Have: count(have, it.Names, it.Doses), RawHas: count(have, it.Raw, false), Parts: []Part{}}
+		if len(it.Recipes) > 0 && len(it.Names) > 0 {
+			s.Makeable = makeable(it.Names[0], have, it.Recipes, 0)
+			s.Parts = partsOf(it.Names[0], have, it.Recipes)
+		}
+		total := s.Have + s.Makeable
 		switch {
-		case s.Have < it.Sufficient:
+		case total < it.Sufficient:
 			s.Status = "low"
-		case s.Have < it.Target:
+		case total < it.Target:
 			s.Status = "ok"
 		default:
 			s.Status = "full"

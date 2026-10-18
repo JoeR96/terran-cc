@@ -50,6 +50,15 @@
     await act.addItem({ title: t, kind: 'todo', ...(a.parent ? { parent_id: a.parent } : { context: 'osrs', when: a.when }) })
   }
 
+  // Stock rows with a recipe open to list the materials in the chain.
+  let openStock = $state((() => { try { return JSON.parse(localStorage.getItem('tcc.osrs.stock')) || [] } catch { return [] } })())
+  function toggleStock(k) {
+    openStock = openStock.includes(k) ? openStock.filter(x => x !== k) : [...openStock, k]
+    try {
+      localStorage.setItem('tcc.osrs.stock', JSON.stringify(openStock))
+    } catch {}
+  }
+
   let editing = $state(null) // {key, field}
   let draft = $state('')
   async function saveNumber() {
@@ -124,12 +133,25 @@
   <h6>Stock <span>have · sufficient · target</span></h6>
   {#each o.stock as s (s.key)}
     {@const b = stockBar(s)}
+    {@const mk = stockBar({ ...s, have: s.have + (s.makeable || 0) })}
+    {@const canOpen = s.parts?.length > 0}
     <div class="row">
       <img src={osrsIcon(s.icon)} alt="" onerror={hide} />
-      <span class="nm" title={s.label}>{s.label}</span>
-      <div class="bar {s.status}"><i style="width:{b.fill}%"></i>{#if b.mark}<b style="left:{b.mark}%"></b>{/if}</div>
-      <span class="vals"><strong>{short(s.have)}</strong>{#if s.raw_have} <span class="cook" title="Raw in the bank, not counted until cooked">+{short(s.raw_have)} raw · cook</span>{/if} · {@render num(s, 'sufficient')} · {@render num(s, 'target')}</span>
+      {#if canOpen}
+        <button class="ghost nm gname" title="Show the materials" onclick={() => toggleStock(s.key)}><span class="caret">{openStock.includes(s.key) ? '▾' : '▸'}</span>{s.label}</button>
+      {:else}
+        <span class="nm" title={s.label}>{s.label}</span>
+      {/if}
+      <div class="bar {s.status}"><em style="width:{mk.fill}%"></em><i style="width:{b.fill}%"></i>{#if b.mark}<b style="left:{b.mark}%"></b>{/if}</div>
+      <span class="vals"><strong>{short(s.have)}</strong>{#if s.makeable} <span class="good" title="More your materials could make">+{short(s.makeable)} makeable</span>{/if}{#if s.raw_have} <span class="cook" title="Raw in the bank, not counted until cooked">+{short(s.raw_have)} raw · cook</span>{/if} · {@render num(s, 'sufficient')} · {@render num(s, 'target')}</span>
     </div>
+    {#if canOpen && openStock.includes(s.key)}
+      <div class="parts">
+        {#each s.parts as p (p.name)}
+          <div class="part" class:none={!p.have}><img src={osrsIcon(p.name.replace(/ /g, '_') + '.png')} alt="" onerror={hide} /><span>{p.name}</span><strong>{short(p.have)}</strong></div>
+        {/each}
+      </div>
+    {/if}
   {/each}
 
   <h6>Skills <span>start · now · goal</span></h6>
@@ -227,6 +249,12 @@
   .addin { grid-column: 2 / -1; padding: 1px 5px; }
   .bar { position: relative; height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
   .bar i { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); }
+  .bar em { position: absolute; top: 0; bottom: 0; left: 0; background: var(--green-fill); }
+  .parts { margin: 0 0 4px 30px; padding: 3px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0 12px; }
+  .part { display: grid; grid-template-columns: 18px 1fr auto; gap: 6px; align-items: center; font-size: 11px; min-height: 20px; }
+  .part img { width: 16px; height: 16px; object-fit: contain; }
+  .part strong { font-weight: 600; }
+  .part.none strong { color: var(--red); }
   .bar b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); }
   .bar.low i { background: var(--red); }
   .bar.ok i { background: var(--yellow); }

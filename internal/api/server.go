@@ -24,7 +24,7 @@ import (
 )
 
 // Version is a var so tests can build an "older" tccd with -ldflags -X.
-var Version = "0.8.0"
+var Version = "0.9.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
