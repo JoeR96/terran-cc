@@ -14,14 +14,15 @@
     // in the OSRS tab, with their pieces and progress.
     // OSRS's This week is its short-term goals; medium and long term live
     // in the OSRS tab with their pieces and progress.
+    { ctx: 'tech', name: 'Tech', hz: [['today', 'Today'], ['week', 'This week'], ['month', 'This month'], ['anytime', 'Later']] },
     { ctx: 'osrs', name: 'OSRS', hz: [['today', 'Today'], ['week', 'This week']], note: 'Longer goals live in the OSRS tab' },
   ]
   const OPEN_KEY = 'tcc.todo.open'
   const SHUT_KEY = 'tcc.todo.shut'
   // All sits on top and gathers each group's to-dos by date. OSRS terms are
   // goals rather than dates, so only OSRS's Today joins in.
-  const ALL = [['today', 'Today', ['irl', 'work', 'osrs']], ['week', 'This week', ['irl', 'work', 'osrs']], ['month', 'This month', ['irl', 'work']]]
-  const TAG = { irl: 'me', work: 'work', osrs: 'osrs' }
+  const ALL = [['today', 'Today', ['irl', 'work', 'tech', 'osrs']], ['week', 'This week', ['irl', 'work', 'tech', 'osrs']], ['month', 'This month', ['irl', 'work', 'tech']]]
+  const TAG = { irl: 'me', work: 'work', tech: 'tech', osrs: 'osrs' }
   const groupOf = ctx => GROUPS.find(g => g.ctx === ctx)
   const DEFAULT_OPEN = ['g:all', 'h:all:today', ...GROUPS.flatMap(g => [`g:${g.ctx}`, `h:${g.ctx}:today`])]
 
@@ -310,6 +311,7 @@
   .acts button { padding: 0 4px; font-size: 11px; }
   .ctag { flex: none; font-size: 9.5px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: var(--btn); color: var(--muted); }
   .ctag.work { background: var(--blue-bg); color: var(--blue); }
+  .ctag.tech { background: rgba(97, 214, 214, .16); color: var(--cyan); }
   .ctag.osrs { background: var(--yellow-bg); color: var(--yellow); }
   .gnote { font-size: 10.5px; }
   .sep { border-top: 1px solid var(--line); margin: 5px 0; }

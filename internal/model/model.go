@@ -55,9 +55,12 @@ const (
 	ContextWork Context = "work"
 	ContextIRL  Context = "irl"
 	ContextOSRS Context = "osrs" // Old School RuneScape goals
+	ContextTech Context = "tech" // technology to learn or revise
 )
 
-func (c Context) Valid() bool { return c == ContextWork || c == ContextIRL || c == ContextOSRS }
+func (c Context) Valid() bool {
+	return c == ContextWork || c == ContextIRL || c == ContextOSRS || c == ContextTech
+}
 
 type HabitType string
 

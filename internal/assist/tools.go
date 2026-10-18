@@ -25,7 +25,7 @@ var (
 	idProp      = prop("integer", "item id, e.g. 45 for #45")
 	projectProp = prop("string", "project slug, e.g. bdb")
 	whenProp    = args{"type": "string", "enum": []string{"today", "week", "month", "anytime"}, "description": "when it's for. For OSRS: today, short term = week, medium term = month, long term = anytime"}
-	ctxProp     = args{"type": "string", "enum": []string{"irl", "work", "osrs"}, "description": "irl = personal (me), work, or osrs (Old School RuneScape goals)"}
+	ctxProp     = args{"type": "string", "enum": []string{"irl", "work", "osrs", "tech"}, "description": "irl = personal (me), work, osrs (Old School RuneScape goals) or tech (technology to learn or revise)"}
 	kindProp    = args{"type": "string", "enum": []string{"todo", "bug", "task", "feature", "idea"}}
 	statusProp  = args{"type": "string", "enum": []string{"inbox", "backlog", "up_next", "in_progress", "review", "done", "someday"}}
 )

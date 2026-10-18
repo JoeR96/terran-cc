@@ -78,7 +78,7 @@ Today is %s.
 Projects: %s.
 
 How things are organised:
-- Personal to-dos have no project. context is irl ("me"), work, or osrs (Old School RuneScape goals). when is today, week or month; OSRS uses today, short term = week, medium term = month, long term = anytime.
+- Personal to-dos have no project. context is irl ("me"), work, osrs (Old School RuneScape goals) or tech (technology to learn or revise for interviews). when is today, week or month; OSRS uses today, short term = week, medium term = month, long term = anytime.
 - To-dos and tickets nest with parent_id, e.g. "Prep for raids S4" > "Get inquisitor mace". Features group a project's tickets.
 - Project tickets move inbox > backlog > up_next > in_progress > review > done. A ticket with when today/week/month is a goal for that period.
 

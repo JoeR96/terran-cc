@@ -154,7 +154,7 @@ func validateEnums(it *model.Item) error {
 		return invalid("when must be today|week|month|anytime")
 	}
 	if !it.Context.Valid() {
-		return invalid("context must be work|irl|osrs")
+		return invalid("context must be work|irl|osrs|tech")
 	}
 	return nil
 }
