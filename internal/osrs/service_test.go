@@ -95,3 +95,23 @@ func TestServiceSkillsSaveStart(t *testing.T) {
 		t.Fatalf("%+v", st)
 	}
 }
+
+func TestOldConfigGetsDefaultRecipes(t *testing.T) {
+	s := NewService(Config{Stock: []StockItem{{Key: "prayer", Names: []string{"Prayer potion"}, Doses: true, Target: 1200}}})
+	if len(s.Config().Stock[0].Recipes) == 0 {
+		t.Fatal("prayer should have picked up its recipe")
+	}
+}
+
+func TestBuiltInItemsKeepTheirOwnRecipes(t *testing.T) {
+	// A saved config where recipes were attached to the wrong items.
+	s := NewService(Config{Stock: []StockItem{
+		{Key: "divine-ranging", Names: []string{"Divine ranging potion"}, Doses: true, Recipes: superCombatRecipes()},
+		{Key: "anti-venom", Names: []string{"Anti-venom"}, Doses: true, Recipes: rangingRecipes()},
+		{Key: "my-own", Names: []string{"Shark"}, Recipes: dartRecipes()},
+	}})
+	st := s.Config().Stock
+	if st[0].Recipes[0].Makes != doseUnit("Divine ranging potion") || len(st[1].Recipes) != 0 || !st[1].Best || st[2].Recipes[0].Makes != "Amethyst dart" {
+		t.Fatalf("%+v", st)
+	}
+}

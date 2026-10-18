@@ -53,17 +53,17 @@ func DefaultStock() []StockItem {
 		withRecipes(item("seeking-arrows", "Seeking amethyst arrows", "Seeking_amethyst_arrow_5.png", []string{"Seeking amethyst arrow"}, false, nil, 20000), seekingArrowRecipes()),
 		withRecipes(item("amethyst-darts", "Amethyst darts", "Amethyst_dart.png", []string{"Amethyst dart"}, false, nil, 5000), dartRecipes()),
 		item("house-tabs", "House teleports", "Teleport_to_house_(tablet).png", []string{"Teleport to house"}, false, nil, 1000),
-		item("prayer", "Prayer potion (doses)", "Prayer_potion(4).png", []string{"Prayer potion"}, true, nil, 1200),
-		item("restore", "Super restore (doses)", "Super_restore(4).png", []string{"Super restore"}, true, nil, 1200),
-		item("brew", "Saradomin brew (doses)", "Saradomin_brew(4).png", []string{"Saradomin brew"}, true, nil, 1200),
-		item("ranging", "Ranging potion (doses)", "Ranging_potion(4).png", []string{"Ranging potion"}, true, nil, 800),
-		item("super-combat", "Super combat (doses)", "Super_combat_potion(4).png", []string{"Super combat potion"}, true, nil, 400),
+		withRecipes(item("prayer", "Prayer potion (doses)", "Prayer_potion(4).png", []string{"Prayer potion"}, true, nil, 1200), prayerRecipes()),
+		withRecipes(item("restore", "Super restore (doses)", "Super_restore(4).png", []string{"Super restore"}, true, nil, 1200), restoreRecipes()),
+		withRecipes(item("brew", "Saradomin brew (doses)", "Saradomin_brew(4).png", []string{"Saradomin brew"}, true, nil, 1200), brewRecipes()),
+		withRecipes(item("ranging", "Ranging potion (doses)", "Ranging_potion(4).png", []string{"Ranging potion"}, true, nil, 800), rangingRecipes()),
+		withRecipes(item("super-combat", "Super combat (doses)", "Super_combat_potion(4).png", []string{"Super combat potion"}, true, nil, 400), superCombatRecipes()),
 		best(item("anti-venom", "Anti-venom, best tier (doses)", "Extended_anti-venom+(4).png", []string{"Extended anti-venom+", "Anti-venom+", "Anti-venom"}, true, nil, 400)),
-		item("divine-super-combat", "Divine super combat (doses)", "Divine_super_combat_potion(4).png", []string{"Divine super combat potion"}, true, nil, 400),
-		item("divine-ranging", "Divine ranging (doses)", "Divine_ranging_potion(4).png", []string{"Divine ranging potion"}, true, nil, 400),
+		withRecipes(item("divine-super-combat", "Divine super combat (doses)", "Divine_super_combat_potion(4).png", []string{"Divine super combat potion"}, true, nil, 400), divine("Divine super combat potion", "Super combat potion", superCombatRecipes())),
+		withRecipes(item("divine-ranging", "Divine ranging (doses)", "Divine_ranging_potion(4).png", []string{"Divine ranging potion"}, true, nil, 400), divine("Divine ranging potion", "Ranging potion", rangingRecipes())),
 		item("karambwan", "Karambwan", "Cooked_karambwan.png", []string{"Cooked karambwan"}, false, []string{"Raw karambwan"}, 500),
 		// Sailing-era stamina for long trips, made with trawled marlin scales.
-		item("extended-stamina", "Extended stamina (doses)", "Extended_stamina_potion(4).png", []string{"Extended stamina potion"}, true, nil, 400),
+		withRecipes(item("extended-stamina", "Extended stamina (doses)", "Extended_stamina_potion(4).png", []string{"Extended stamina potion"}, true, nil, 400), staminaRecipes()),
 	}
 }
 
@@ -138,8 +138,13 @@ func Stocks(items []StockItem, have map[string]int) []Stock {
 			}
 		}
 		if len(it.Recipes) > 0 && len(it.Names) > 0 {
-			s.Makeable = makeable(it.Names[0], have, it.Recipes, 0)
-			s.Parts = partsOf(it.Names[0], have, it.Recipes)
+			// Potions are made and counted by the dose.
+			root, pool := it.Names[0], have
+			if it.Doses {
+				root, pool = doseUnit(it.Names[0]), withDoses(have)
+			}
+			s.Makeable = makeable(root, pool, it.Recipes, 0)
+			s.Parts = partsOf(root, pool, it.Recipes)
 		}
 		total := s.Have + s.Makeable
 		switch {

@@ -97,11 +97,13 @@ func run() (err error) {
 	}
 	tm := timer.New(cfg, time.Now)
 	bus := events.NewBus()
-	ocfg := osrs.DefaultConfig()
+	// Decode into an empty config: decoding over the defaults would reuse
+	// their list entries by position and leak fields between items.
+	var ocfg osrs.Config
 	if v, ok, _ := db.GetSetting(ctx, api.OSRSConfigKey); ok {
 		if err := json.Unmarshal([]byte(v), &ocfg); err != nil {
 			log.Printf("ignoring bad OSRS config: %v", err)
-			ocfg = osrs.DefaultConfig()
+			ocfg = osrs.Config{}
 		}
 	}
 	tracker := osrs.NewService(ocfg)

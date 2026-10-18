@@ -75,6 +75,17 @@ func NewService(cfg Config) *Service {
 	if cfg.Stock == nil {
 		cfg.Stock = DefaultStock()
 	}
+	// Built-in items always use the current recipe chains and tier rule,
+	// so saved copies (which can predate or have garbled them) can't drift.
+	defaults := map[string]StockItem{}
+	for _, d := range DefaultStock() {
+		defaults[d.Key] = d
+	}
+	for i, it := range cfg.Stock {
+		if d, ok := defaults[it.Key]; ok {
+			cfg.Stock[i].Recipes, cfg.Stock[i].Best = d.Recipes, d.Best
+		}
+	}
 	if cfg.AFK == nil {
 		cfg.AFK = append([]string(nil), DefaultAFK...)
 	}
@@ -96,7 +107,8 @@ func (s *Service) propsPath() string {
 // containers are the Data Export files whose items count as stock.
 func (s *Service) containers() []string {
 	d := filepath.Join(s.dir(), "Data Exports")
-	return []string{filepath.Join(d, "container_bank.json"), filepath.Join(d, "container_inventory.json"), filepath.Join(d, "container_equipment.json")}
+	return []string{filepath.Join(d, "container_bank.json"), filepath.Join(d, "container_inventory.json"),
+		filepath.Join(d, "container_equipment.json"), filepath.Join(d, "container_seed_vault.json")}
 }
 
 func (s *Service) Config() Config {

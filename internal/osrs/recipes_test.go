@@ -40,3 +40,24 @@ func TestStocksCountWhatCanBeMade(t *testing.T) {
 		t.Fatalf("%+v", s)
 	}
 }
+
+func TestPotionChainsCountDoses(t *testing.T) {
+	have := map[string]int{
+		"Prayer potion(4)": 2, "Ranarr potion (unf)": 10, "Ranarr weed": 5, "Grimy ranarr weed": 5,
+		"Ranarr seed": 5, "Vial of water": 1000, "Snape grass": 100,
+	}
+	s := Stocks([]StockItem{{Key: "prayer", Names: []string{"Prayer potion"}, Doses: true, Recipes: prayerRecipes(), Sufficient: 60, Target: 1200}}, have)[0]
+	// 10 unf + 5 clean + 5 grimy + 5 seeds × 8.8 = 64 potions of 3 doses.
+	if s.Have != 8 || s.Makeable != 192 || s.Status != "ok" {
+		t.Fatalf("prayer %+v", s)
+	}
+	if len(s.Parts) != 6 || s.Parts[0].Name != "Ranarr potion (unf)" {
+		t.Fatalf("parts %+v", s.Parts)
+	}
+	d := Stocks([]StockItem{{Key: "dr", Names: []string{"Divine ranging potion"}, Doses: true, Recipes: divine("Divine ranging potion", "Ranging potion", rangingRecipes()), Target: 400}},
+		map[string]int{"Ranging potion(4)": 10, "Crystal shard": 1})[0]
+	// 40 ranging doses but only 10 crystal dust.
+	if d.Makeable != 10 {
+		t.Fatalf("divine %+v", d)
+	}
+}
