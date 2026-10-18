@@ -39,6 +39,12 @@ not json
 	if b := got["brew"]; b.Status != "full" {
 		t.Errorf("zero target is met: %+v", b)
 	}
+	// Best tier: Extended anti-venom+ is held, so it's what counts.
+	tiers := Stocks([]StockItem{{Key: "av", Names: []string{"Extended anti-venom+", "Anti-venom+", "Anti-venom"}, Doses: true, Best: true, Sufficient: 20, Target: 400}},
+		map[string]int{"Extended anti-venom+(4)": 1, "Extended anti-venom+(1)": 2, "Anti-venom(4)": 564})[0]
+	if tiers.Tier != "Extended anti-venom+" || tiers.Have != 6 || tiers.Lower != 2256 || tiers.Status != "low" {
+		t.Errorf("best tier %+v", tiers)
+	}
 	for _, d := range DefaultStock() {
 		if d.Sufficient != d.Target/20 || d.Icon == "" || len(d.Names) == 0 {
 			t.Errorf("default %+v", d)

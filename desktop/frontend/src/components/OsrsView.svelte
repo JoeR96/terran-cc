@@ -143,7 +143,7 @@
         <span class="nm" title={s.label}>{s.label}</span>
       {/if}
       <div class="bar {s.status}"><em style="width:{mk.fill}%"></em><i style="width:{b.fill}%"></i>{#if b.mark}<b style="left:{b.mark}%"></b>{/if}</div>
-      <span class="vals"><strong>{short(s.have)}</strong>{#if s.makeable} <span class="good" title="More your materials could make">+{short(s.makeable)} makeable</span>{/if}{#if s.raw_have} <span class="cook" title="Raw in the bank, not counted until cooked">+{short(s.raw_have)} raw · cook</span>{/if} · {@render num(s, 'sufficient')} · {@render num(s, 'target')}</span>
+      <span class="vals"><strong>{short(s.have)}</strong>{#if s.tier} <span class="faint" title="The best tier you hold">{s.tier}</span>{/if}{#if s.lower} <span class="faint" title="Lower tiers, not counted">+{short(s.lower)} lower</span>{/if}{#if s.makeable} <span class="good" title="More your materials could make">+{short(s.makeable)} makeable</span>{/if}{#if s.raw_have} <span class="cook" title="Raw in the bank, not counted until cooked">+{short(s.raw_have)} raw · cook</span>{/if} · {@render num(s, 'sufficient')} · {@render num(s, 'target')}</span>
     </div>
     {#if canOpen && openStock.includes(s.key)}
       <div class="parts">

@@ -17,8 +17,11 @@ type StockItem struct {
 	Names []string `json:"names"` // bank item names that count
 	// Doses counts potions by the dose: "Prayer potion" matches
 	// "Prayer potion(1)" to "(4)" and adds up the doses.
-	Doses bool     `json:"doses,omitempty"`
-	Raw   []string `json:"raw,omitempty"` // shown beside, not counted
+	Doses bool `json:"doses,omitempty"`
+	// Best counts only the highest tier held: Names run best first, and the
+	// first one in the bank is the one tracked; lower tiers show beside it.
+	Best bool     `json:"best,omitempty"`
+	Raw  []string `json:"raw,omitempty"` // shown beside, not counted
 	// Recipes say how the bank's materials turn into this item; what they
 	// could make counts towards sufficient and target.
 	Recipes    []Recipe `json:"recipes,omitempty"`
@@ -31,9 +34,11 @@ type Stock struct {
 	StockItem
 	Have     int    `json:"have"`
 	RawHas   int    `json:"raw_have"`
-	Makeable int    `json:"makeable"` // more the materials could make
-	Parts    []Part `json:"parts"`    // every material in the recipe chain
-	Status   string `json:"status"`   // low | ok | full, counting what can be made
+	Tier     string `json:"tier,omitempty"`  // with Best: the tier being counted
+	Lower    int    `json:"lower,omitempty"` // with Best: what the lower tiers hold
+	Makeable int    `json:"makeable"`        // more the materials could make
+	Parts    []Part `json:"parts"`           // every material in the recipe chain
+	Status   string `json:"status"`          // low | ok | full, counting what can be made
 }
 
 // DefaultStock is the list agreed with Joe on 2026-10-17. Sufficient is 5%
@@ -53,11 +58,18 @@ func DefaultStock() []StockItem {
 		item("brew", "Saradomin brew (doses)", "Saradomin_brew(4).png", []string{"Saradomin brew"}, true, nil, 1200),
 		item("ranging", "Ranging potion (doses)", "Ranging_potion(4).png", []string{"Ranging potion"}, true, nil, 800),
 		item("super-combat", "Super combat (doses)", "Super_combat_potion(4).png", []string{"Super combat potion"}, true, nil, 400),
-		item("anti-venom", "Anti-venom, all kinds (doses)", "Anti-venom+(4).png", []string{"Anti-venom", "Anti-venom+", "Extended anti-venom+"}, true, nil, 400),
+		best(item("anti-venom", "Anti-venom, best tier (doses)", "Extended_anti-venom+(4).png", []string{"Extended anti-venom+", "Anti-venom+", "Anti-venom"}, true, nil, 400)),
+		item("divine-super-combat", "Divine super combat (doses)", "Divine_super_combat_potion(4).png", []string{"Divine super combat potion"}, true, nil, 400),
+		item("divine-ranging", "Divine ranging (doses)", "Divine_ranging_potion(4).png", []string{"Divine ranging potion"}, true, nil, 400),
 		item("karambwan", "Karambwan", "Cooked_karambwan.png", []string{"Cooked karambwan"}, false, []string{"Raw karambwan"}, 500),
 		// Sailing-era stamina for long trips, made with trawled marlin scales.
 		item("extended-stamina", "Extended stamina (doses)", "Extended_stamina_potion(4).png", []string{"Extended stamina potion"}, true, nil, 400),
 	}
+}
+
+func best(it StockItem) StockItem {
+	it.Best = true
+	return it
 }
 
 func withRecipes(it StockItem, r []Recipe) StockItem {
@@ -114,6 +126,17 @@ func Stocks(items []StockItem, have map[string]int) []Stock {
 	out := make([]Stock, 0, len(items))
 	for _, it := range items {
 		s := Stock{StockItem: it, Have: count(have, it.Names, it.Doses), RawHas: count(have, it.Raw, false), Parts: []Part{}}
+		if it.Best {
+			s.Have, s.Lower = 0, 0
+			for _, n := range it.Names {
+				c := count(have, []string{n}, it.Doses)
+				if s.Tier == "" && c > 0 {
+					s.Tier, s.Have = n, c
+				} else {
+					s.Lower += c
+				}
+			}
+		}
 		if len(it.Recipes) > 0 && len(it.Names) > 0 {
 			s.Makeable = makeable(it.Names[0], have, it.Recipes, 0)
 			s.Parts = partsOf(it.Names[0], have, it.Recipes)

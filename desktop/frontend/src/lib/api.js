@@ -54,7 +54,7 @@ export async function upload(id, file) {
   return data
 }
 
-const EVENTS = ['item.changed', 'project.changed', 'habit.changed', 'timer.tick', 'timer.phase', 'ui.changed']
+const EVENTS = ['item.changed', 'project.changed', 'habit.changed', 'timer.tick', 'timer.phase', 'ui.changed', 'osrs.changed', 'osrs.ready']
 
 // listen streams tccd events. onOpen runs on every (re)connect so callers can
 // reload anything they missed while the service was away.
