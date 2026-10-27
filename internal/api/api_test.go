@@ -404,6 +404,107 @@ func TestVaultSearchAndRead(t *testing.T) {
 	}
 }
 
+func TestVaultTreeListsFilesAndSkipsHidden(t *testing.T) {
+	vault := t.TempDir()
+	os.MkdirAll(filepath.Join(vault, "Hobbies", "OSRS"), 0o755)
+	os.MkdirAll(filepath.Join(vault, ".obsidian"), 0o755)
+	os.WriteFile(filepath.Join(vault, "Hobbies", "OSRS", "goals.md"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(vault, ".obsidian", "app.json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(vault, "shot.png"), []byte("png"), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	var entries []map[string]any
+	if c := e.do(t, "GET", "/api/vault/tree", nil, &entries); c != 200 {
+		t.Fatalf("tree %d", c)
+	}
+	got := map[string]bool{}
+	for _, en := range entries {
+		got[en["path"].(string)] = en["dir"].(bool)
+	}
+	if got["Hobbies"] != true || got["Hobbies/OSRS"] != true || got["Hobbies/OSRS/goals.md"] != false || got["shot.png"] != false {
+		t.Fatalf("entries %v", got)
+	}
+	if _, hidden := got[".obsidian"]; hidden {
+		t.Fatal("tree listed .obsidian")
+	}
+	if _, hidden := got[".obsidian/app.json"]; hidden {
+		t.Fatal("tree listed a hidden file")
+	}
+}
+
+func TestVaultWriteNote(t *testing.T) {
+	vault := t.TempDir()
+	os.MkdirAll(filepath.Join(vault, "Hobbies"), 0o755)
+	os.WriteFile(filepath.Join(vault, "Hobbies", "goals.md"), []byte("old"), 0o644)
+	os.WriteFile(filepath.Join(filepath.Dir(vault), "secret.md"), []byte("nope"), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	if c := e.do(t, "PUT", "/api/vault/note?path=Hobbies/goals.md", map[string]string{"text": "new line"}, nil); c != 200 {
+		t.Fatalf("write %d", c)
+	}
+	b, err := os.ReadFile(filepath.Join(vault, "Hobbies", "goals.md"))
+	if err != nil || string(b) != "new line" {
+		t.Fatalf("file %q %v", b, err)
+	}
+	var note map[string]string
+	if c := e.do(t, "GET", "/api/vault/note?path=Hobbies/goals.md", nil, &note); c != 200 || note["text"] != "new line" {
+		t.Fatalf("read back %d %v", c, note)
+	}
+	for _, bad := range []string{"../secret.md", "Hobbies/../../secret.md", "Hobbies/pic.png", "Missing/new.md"} {
+		if c := e.do(t, "PUT", "/api/vault/note?path="+bad, map[string]string{"text": "x"}, nil); c != 400 {
+			t.Errorf("%s: %d, want 400", bad, c)
+		}
+	}
+	secret, _ := os.ReadFile(filepath.Join(filepath.Dir(vault), "secret.md"))
+	if string(secret) != "nope" {
+		t.Fatalf("wrote outside the vault: %q", secret)
+	}
+}
+
+func TestVaultFileServesImages(t *testing.T) {
+	vault := t.TempDir()
+	os.MkdirAll(filepath.Join(vault, "Hobbies"), 0o755)
+	os.WriteFile(filepath.Join(vault, "Hobbies", "shot.png"), []byte("png-bytes"), 0o644)
+	os.WriteFile(filepath.Join(vault, "Hobbies", "goals.md"), []byte("note"), 0o644)
+	os.WriteFile(filepath.Join(filepath.Dir(vault), "secret.png"), []byte("nope"), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	resp, err := http.Get(e.srv.URL + "/api/vault/file?path=Hobbies/shot.png&token=" + tok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || string(b) != "png-bytes" || !strings.HasPrefix(resp.Header.Get("Content-Type"), "image/png") {
+		t.Fatalf("file %d %q %q", resp.StatusCode, b, resp.Header.Get("Content-Type"))
+	}
+	resp, _ = http.Get(e.srv.URL + "/api/vault/file?path=Hobbies/shot.png&token=wrong")
+	resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Fatalf("wrong token: %d", resp.StatusCode)
+	}
+	for _, bad := range []string{"../secret.png", "Hobbies/../../secret.png", "Hobbies/goals.md"} {
+		if c := e.do(t, "GET", "/api/vault/file?path="+bad, nil, nil); c != 400 {
+			t.Errorf("%s: %d, want 400", bad, c)
+		}
+	}
+}
+
+func TestVaultNoteFullRead(t *testing.T) {
+	vault := t.TempDir()
+	body := strings.Repeat("a", maxNoteBytes+1)
+	os.WriteFile(filepath.Join(vault, "long.md"), []byte(body), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	var note map[string]string
+	if c := e.do(t, "GET", "/api/vault/note?path=long.md", nil, &note); c != 200 || len(note["text"]) != maxNoteBytes {
+		t.Fatalf("capped read %d len %d", c, len(note["text"]))
+	}
+	if c := e.do(t, "GET", "/api/vault/note?path=long.md&full=1", nil, &note); c != 200 || note["text"] != body {
+		t.Fatalf("full read %d len %d", c, len(note["text"]))
+	}
+}
+
 func upload(t *testing.T, e *env, id int64, name, body string) model.Item {
 	t.Helper()
 	var buf bytes.Buffer

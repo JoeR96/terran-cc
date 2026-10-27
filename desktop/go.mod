@@ -2,7 +2,15 @@ module terrancc/desktop
 
 go 1.26.0
 
-require terrancc v0.0.0
+require (
+	github.com/tc-hib/winres v0.3.1
+	terrancc v0.0.0
+)
+
+require (
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
+	golang.org/x/image v0.41.0 // indirect
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect

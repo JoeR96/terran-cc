@@ -54,6 +54,7 @@ foreach ($dir in @($programs, $startup)) {
     $lnk.TargetPath = Join-Path $bin 'tcc-desktop.exe'
     $lnk.WorkingDirectory = $bin
     $lnk.Description = 'Terran CC command centre'
+    $lnk.IconLocation = (Join-Path $bin 'tcc-desktop.exe') + ',0'
     $lnk.Save()
 }
 Write-Host 'Added Terran CC to the Start Menu and to sign-in startup'

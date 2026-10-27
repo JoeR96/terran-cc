@@ -10,6 +10,7 @@
   import ItemDrawer from '../components/ItemDrawer.svelte'
   import Chat from '../components/Chat.svelte'
   import Notes from '../components/Notes.svelte'
+  import Vault from '../components/Vault.svelte'
   import OsrsView from '../components/OsrsView.svelte'
   import { route } from '../lib/route.svelte.js'
 
@@ -81,6 +82,14 @@
       localStorage.setItem('tcc.side.tab', t)
     } catch {}
   }
+
+  let page = $state((() => { try { return localStorage.getItem('tcc.side.page') || 'hud' } catch { return 'hud' } })())
+  function setPage(p) {
+    page = p
+    try {
+      localStorage.setItem('tcc.side.page', p)
+    } catch {}
+  }
 </script>
 
 {#snippet middle()}
@@ -133,12 +142,19 @@
     </div>
   {/if}
 
-  {#if locking && !dismissed}
+  <div class="pagetabs nodrag">
+    <button class="ghost" class:on={page === 'hud'} onclick={() => setPage('hud')}>HUD</button>
+    <button class="ghost" class:on={page === 'notes'} onclick={() => setPage('notes')}>Notes</button>
+  </div>
+
+  {#if locking && !dismissed && page === 'hud'}
     <button class="lock" title="Click to show the whole widget" onclick={() => (dismissed = true)}>
       <span class="time" class:paused={t.state === 'paused'}>{mmss(t.remaining_s)}</span>
       <span class="task">{t.label}</span>
       <span class="bar"><i style="width:{t.total_s ? (100 * (t.total_s - t.remaining_s)) / t.total_s : 0}%"></i></span>
     </button>
+  {:else if page === 'notes'}
+    <div class="vaultpage"><Vault /></div>
   {:else if wider}
     <div class="body wide">
       <div class="sec band">
@@ -213,6 +229,10 @@
   .rail:hover { background: var(--panel-2); }
   .grow { flex: 1; }
   .tabs .fold { letter-spacing: 0; }
+  .pagetabs { display: flex; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--line); flex: none; background: var(--panel-2); }
+  .pagetabs button { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; padding: 2px 8px; }
+  .pagetabs button.on { color: var(--text); background: var(--btn); }
+  .vaultpage { flex: 1; min-height: 0; }
   .tabs { display: flex; gap: 2px; margin-bottom: 6px; flex: none; }
   .tabs button { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; padding: 1px 6px; }
   .tabs button.on { color: var(--text); background: var(--btn); }

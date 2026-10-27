@@ -24,7 +24,7 @@ import (
 )
 
 // Version is a var so tests can build an "older" tccd with -ldflags -X.
-var Version = "0.12.0"
+var Version = "0.13.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
@@ -119,7 +119,7 @@ func (s *server) auth(next http.Handler) http.Handler {
 }
 
 func queryTokenPath(p string) bool {
-	return p == "/api/events" || (strings.HasPrefix(p, "/api/items/") && strings.Contains(p, "/attachments/")) ||
+	return p == "/api/events" || p == "/api/vault/file" || (strings.HasPrefix(p, "/api/items/") && strings.Contains(p, "/attachments/")) ||
 		strings.HasPrefix(p, "/api/osrs/icon/")
 }
 

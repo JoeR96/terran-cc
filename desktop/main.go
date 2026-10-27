@@ -28,8 +28,11 @@ import (
 //go:embed all:frontend/dist
 var dist embed.FS
 
-//go:embed tray.png
-var trayIcon []byte
+// appIcon is the command centre drawn by tools/icon; the exe icon comes
+// from the same drawing via rsrc_windows_amd64.syso.
+//
+//go:embed appicon.png
+var appIcon []byte
 
 func tccdPath() string {
 	if exe, err := os.Executable(); err == nil {
@@ -72,6 +75,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "Terran CC",
 		Description: "Tickets, to-dos, habits and a Pomodoro timer",
+		Icon:        appIcon,
 		Services:    []application.Service{application.NewService(notifier)},
 		Assets: application.AssetOptions{
 			Handler:        application.BundledAssetFileServer(assets),
@@ -89,7 +93,7 @@ func main() {
 	s.app = app
 
 	tray := app.SystemTray.New()
-	tray.SetIcon(trayIcon)
+	tray.SetIcon(appIcon)
 	tray.SetTooltip("Terran CC")
 	menu := app.NewMenu()
 	menu.Add("Dashboard").OnClick(func(*application.Context) { go s.focusDashboard() })
