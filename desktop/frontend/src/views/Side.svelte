@@ -8,7 +8,7 @@
   import Goals from '../components/Goals.svelte'
   import ProjectTree from '../components/ProjectTree.svelte'
   import ItemDrawer from '../components/ItemDrawer.svelte'
-  import Chat from '../components/Chat.svelte'
+  import Claude from '../components/Claude.svelte'
   import Notes from '../components/Notes.svelte'
   import Vault from '../components/Vault.svelte'
   import OsrsView from '../components/OsrsView.svelte'
@@ -45,6 +45,8 @@
   const openItem = it => (drawer = it.id)
   // Ctrl+T toggles always-on-top while the widget has focus.
   function onKey(e) {
+    // Inside Claude's terminal, keys belong to Claude.
+    if (e.target?.closest?.('.xterm')) return
     if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 't') {
       e.preventDefault()
       setTop()
@@ -107,12 +109,12 @@
 
 {#snippet box()}
   <div class="tabs">
-    <button class="ghost" class:on={boxOpen && tab === 'chat'} onclick={() => (setTab('chat'), boxOpen || toggleBox())}>Assistant</button>
+    <button class="ghost" class:on={boxOpen && tab === 'chat'} onclick={() => (setTab('chat'), boxOpen || toggleBox())}>Claude</button>
     <button class="ghost" class:on={boxOpen && tab === 'notes'} onclick={() => (setTab('notes'), boxOpen || toggleBox())}>Notes</button>
     <span class="grow"></span>
     {#if boxOpen}<button class="ghost fold" title="Fold away" onclick={toggleBox}>{wider ? '»' : '▾'}</button>{/if}
   </div>
-  {#if boxOpen}<div class="tabbody">{#if tab === 'notes'}<Notes />{:else}<Chat />{/if}</div>{/if}
+  {#if boxOpen}<div class="tabbody">{#if tab === 'notes'}<Notes />{:else}<Claude />{/if}</div>{/if}
 {/snippet}
 
 <svelte:window onkeydown={onKey} />
@@ -167,7 +169,7 @@
         {#if boxOpen}
           <div class="col boxcol">{@render box()}</div>
         {:else}
-          <button class="ghost rail" title="Open the assistant and notes" onclick={toggleBox}><span>« Assistant · Notes</span></button>
+          <button class="ghost rail" title="Open Claude and notes" onclick={toggleBox}><span>« Claude · Notes</span></button>
         {/if}
       </div>
     </div>

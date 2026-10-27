@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/UserExistsError/conpty v0.1.4 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	golang.org/x/image v0.41.0 // indirect
 )

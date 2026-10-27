@@ -20,12 +20,12 @@ import (
 	"time"
 
 	"terrancc/internal/api"
-	"terrancc/internal/assist"
 	"terrancc/internal/config"
 	"terrancc/internal/core"
 	"terrancc/internal/events"
 	"terrancc/internal/osrs"
 	"terrancc/internal/store/sqlite"
+	"terrancc/internal/term"
 	"terrancc/internal/timer"
 )
 
@@ -108,7 +108,15 @@ func run() (err error) {
 	}
 	tracker := osrs.NewService(ocfg)
 	tracker.Version = api.Version
-	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithAssistant(assistant()), api.WithOSRS(tracker, ""), api.WithVault(vaultDir())), ReadHeaderTimeout: 10 * time.Second}
+	// The side widget's Claude Code session: one process, kept alive here so
+	// closing a window never ends it. It starts when a widget first connects.
+	assistDir := filepath.Join(home, "assistant")
+	if err := term.SetupDir(assistDir); err != nil {
+		log.Printf("assistant folder: %v", err)
+	}
+	claude := term.New(term.ClaudeStarter(assistDir))
+	defer claude.Close()
+	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithTerminal(claude), api.WithOSRS(tracker, ""), api.WithVault(vaultDir())), ReadHeaderTimeout: 10 * time.Second}
 	go tracker.Run(ctx)
 
 	go api.RunTicker(ctx, tm, bus)
@@ -169,25 +177,7 @@ func envOr(key, def string) string {
 	return def
 }
 
-// assistant talks to OpenCode Go. The key is read on each message, from
-// TCC_OPENCODE_KEY or opencode's own auth.json, so connecting OpenCode Go
-// later needs no restart. TCC_ASSIST_MODEL and TCC_ASSIST_URL override the
-// defaults.
-func assistant() *assist.Client {
-	c := &assist.Client{URL: assist.DefaultURL, Model: assist.DefaultModel, Key: assist.OpencodeKey(assist.AuthPath()), Version: api.Version}
-	if v := os.Getenv("TCC_ASSIST_URL"); v != "" {
-		c.URL = v
-	}
-	if v := os.Getenv("TCC_ASSIST_MODEL"); v != "" {
-		c.Model = v
-	}
-	if k := os.Getenv("TCC_OPENCODE_KEY"); k != "" {
-		c.Key = func() (string, error) { return k, nil }
-	}
-	return c
-}
-
-// vaultDir is Joe's Obsidian vault, read by the assistant: TCC_VAULT, or
+// vaultDir is Joe's Obsidian vault, shown in the side widget: TCC_VAULT, or
 // Documents\Obsidian Vault when it exists.
 func vaultDir() string {
 	if v := os.Getenv("TCC_VAULT"); v != "" {

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -17,14 +16,15 @@ import (
 	"testing"
 	"time"
 
-	"terrancc/internal/assist"
 	"terrancc/internal/core"
 	"terrancc/internal/events"
 	"terrancc/internal/model"
 	"terrancc/internal/osrs"
-	"terrancc/internal/store"
 	"terrancc/internal/store/sqlite"
+	"terrancc/internal/term"
 	"terrancc/internal/timer"
+
+	"github.com/coder/websocket"
 )
 
 const tok = "secret"
@@ -245,55 +245,12 @@ func TestTimerCountdownHTTP(t *testing.T) {
 	}
 }
 
-func TestAssistRunsToolsAgainstTheAPI(t *testing.T) {
-	var sent []map[string]any
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		sent = append(sent, body)
-		msg := map[string]any{"role": "assistant", "content": "Added it."}
-		if len(sent) == 1 {
-			msg = map[string]any{"role": "assistant", "tool_calls": []any{map[string]any{"id": "c1", "type": "function",
-				"function": map[string]any{"name": "add_item", "arguments": `{"title":"Get inquisitor mace","context":"osrs","when":"week"}`}}}}
-		}
-		json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": msg}}})
-	}))
-	defer upstream.Close()
-	e := setupWith(t, WithAssistant(&assist.Client{URL: upstream.URL, Model: "m", Key: func() (string, error) { return "k", nil }}))
+func TestAddItemByProjectSlug(t *testing.T) {
+	e := setup(t)
 	e.do(t, "POST", "/api/projects", map[string]any{"name": "Big Dave's Bonanza", "slug": "bdb"}, nil)
-
 	var made model.Item
 	if c := e.do(t, "POST", "/api/items", map[string]any{"title": "Exploding barrels", "project_id": "bdb", "inbox": true}, &made); c != 201 || made.ProjectID == nil {
 		t.Fatalf("add by project slug: %d %+v", c, made)
-	}
-	e.do(t, "DELETE", fmt.Sprintf("/api/items/%d", made.ID), nil, nil)
-
-	var r assist.Reply
-	if c := e.do(t, "POST", "/api/assist", map[string]any{"session": "s1", "messages": []any{map[string]any{"role": "user", "content": "osrs short term: get inquisitor mace"}}}, &r); c != 200 {
-		t.Fatalf("status %d %+v", c, r)
-	}
-	if r.Reply != "Added it." || len(r.Actions) != 1 || !r.Actions[0].OK {
-		t.Fatalf("%+v", r)
-	}
-	items, _ := e.svc.Store.ListItems(context.Background(), store.ItemFilter{})
-	if len(items) != 1 || items[0].Title != "Get inquisitor mace" || items[0].Context != model.ContextOSRS {
-		t.Fatalf("items %+v", items)
-	}
-	sys := sent[0]["messages"].([]any)[0].(map[string]any)["content"].(string)
-	if !strings.Contains(sys, "bdb") || !strings.Contains(sys, "2026") && !strings.Contains(sys, time.Now().Format("2006")) {
-		t.Fatalf("system prompt lacks projects or date: %s", sys)
-	}
-}
-
-func TestAssistWithoutKey(t *testing.T) {
-	e := setupWith(t, WithAssistant(&assist.Client{URL: "http://127.0.0.1:1", Key: func() (string, error) { return "", errors.New("missing") }}))
-	var m map[string]string
-	if c := e.do(t, "POST", "/api/assist", map[string]any{"messages": []any{map[string]any{"role": "user", "content": "hi"}}}, &m); c != 503 || !strings.Contains(m["error"], "OpenCode Go") {
-		t.Fatalf("%d %v", c, m)
-	}
-	e2 := setup(t)
-	if c := e2.do(t, "POST", "/api/assist", map[string]any{"messages": []any{}}, nil); c != 503 {
-		t.Fatalf("no assistant configured: %d", c)
 	}
 }
 
@@ -379,6 +336,52 @@ func TestOSRSTicksMaterialsFromTheBank(t *testing.T) {
 	if p := st.Pieces[fmt.Sprint(planks.ID)]; p != (osrs.Piece{Have: 3, Need: 26}) {
 		t.Fatalf("pieces %+v", st.Pieces)
 	}
+}
+
+// pipeProc is a terminal program for the websocket test: it echoes input.
+type pipeProc struct {
+	r *io.PipeReader
+	w *io.PipeWriter
+}
+
+func (p *pipeProc) Read(b []byte) (int, error)           { return p.r.Read(b) }
+func (p *pipeProc) Write(b []byte) (int, error)          { return p.w.Write(append([]byte("echo:"), b...)) }
+func (p *pipeProc) Resize(int, int) error                { return nil }
+func (p *pipeProc) Wait(context.Context) (uint32, error) { select {} }
+func (p *pipeProc) Close() error                         { return p.w.Close() }
+
+func TestTerminalWebsocket(t *testing.T) {
+	sess := term.New(func(cols, rows int, again bool) (term.Proc, error) {
+		r, w := io.Pipe()
+		go w.Write([]byte("Welcome to Claude Code\r\n"))
+		return &pipeProc{r, w}, nil
+	})
+	e := setupWith(t, WithTerminal(sess))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(e.srv.URL, "http")+"/api/term", nil); err == nil {
+		t.Fatal("no token should be refused")
+	}
+	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(e.srv.URL, "http")+"/api/term?token="+tok, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	read := func(want string) {
+		t.Helper()
+		var got string
+		for !strings.Contains(got, want) {
+			_, b, err := c.Read(ctx)
+			if err != nil {
+				t.Fatalf("waiting for %q, got %q: %v", want, got, err)
+			}
+			got += string(b)
+		}
+	}
+	read("Welcome")
+	c.Write(ctx, websocket.MessageText, []byte(`{"t":"i","d":"hi"}`))
+	read("echo:hi")
+	c.Write(ctx, websocket.MessageText, []byte(`{"t":"r","c":120,"r":40}`))
 }
 
 func TestVaultSearchAndRead(t *testing.T) {

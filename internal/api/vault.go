@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// WithVault lets the assistant search and read Joe's Obsidian vault, and
-// lets the side widget browse, edit notes and show images. dir is the vault folder.
+// WithVault lets the side widget search, browse and edit Joe's Obsidian
+// vault and show its images. dir is the vault folder.
 func WithVault(dir string) Option { return func(s *server) { s.vault = dir } }
 
 const (

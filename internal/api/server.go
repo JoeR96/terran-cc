@@ -15,32 +15,32 @@ import (
 	"sync"
 	"time"
 
-	"terrancc/internal/assist"
 	"terrancc/internal/core"
 	"terrancc/internal/events"
 	"terrancc/internal/osrs"
 	"terrancc/internal/store"
+	"terrancc/internal/term"
 	"terrancc/internal/timer"
 )
 
 // Version is a var so tests can build an "older" tccd with -ldflags -X.
-var Version = "0.13.0"
+var Version = "0.14.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
 
 type server struct {
-	svc       *core.Service
-	timer     *timer.Timer
-	bus       *events.Bus
-	token     string
-	home      string
-	shutdown  func()
-	assistant *assist.Client
-	osrs      *osrs.Service
-	wiki      string
-	vault     string
-	osrsSync  sync.Mutex
+	svc      *core.Service
+	timer    *timer.Timer
+	bus      *events.Bus
+	token    string
+	home     string
+	shutdown func()
+	osrs     *osrs.Service
+	wiki     string
+	vault    string
+	term     *term.Session
+	osrsSync sync.Mutex
 }
 
 type Option func(*server)
@@ -76,9 +76,9 @@ func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string,
 	s.habitRoutes(mux)
 	s.timerRoutes(mux)
 	s.uiRoutes(mux)
-	s.assistRoutes(mux)
 	s.osrsRoutes(mux)
 	s.vaultRoutes(mux)
+	s.termRoutes(mux)
 	mux.HandleFunc("GET /api/events", s.events)
 	return cors(s.auth(mux))
 }
@@ -119,7 +119,7 @@ func (s *server) auth(next http.Handler) http.Handler {
 }
 
 func queryTokenPath(p string) bool {
-	return p == "/api/events" || p == "/api/vault/file" || (strings.HasPrefix(p, "/api/items/") && strings.Contains(p, "/attachments/")) ||
+	return p == "/api/events" || p == "/api/term" || p == "/api/vault/file" || (strings.HasPrefix(p, "/api/items/") && strings.Contains(p, "/attachments/")) ||
 		strings.HasPrefix(p, "/api/osrs/icon/")
 }
 
