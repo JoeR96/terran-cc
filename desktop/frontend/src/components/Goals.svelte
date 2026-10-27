@@ -9,6 +9,9 @@
   const LABEL = { today: 'today', week: 'week', month: 'month' }
 </script>
 
+<!-- Only shown when there are goals; the tree's T / W / M buttons add them. -->
+{#if rows.length}
+<div class="goals">
 <h6>Goals <span>{rows.filter(i => i.status !== 'done').length}</span></h6>
 {#each rows as it (it.id)}
   <div class="g" class:done={it.status === 'done'}>
@@ -18,13 +21,14 @@
     <span class="faint slug">{projectOf(it.project_id)?.slug}</span>
     <button class="ghost x" title="Remove from goals" onclick={() => act.edit(it.id, { when: 'anytime' })}>✕</button>
   </div>
-{:else}
-  <div class="faint empty">Set a ticket's T / W / M in the tree below to make it a goal.</div>
 {/each}
+</div>
+{/if}
 
 <style>
   .g { display: flex; gap: 6px; align-items: center; min-height: 21px; }
-  .title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  /* Long titles wrap rather than hide behind an ellipsis. */
+  .title { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; padding: 2px 0; cursor: pointer; }
   .title:hover { color: var(--strong); }
   .done .title { text-decoration: line-through; color: var(--faint); }
   .slug { font-size: 10.5px; }
@@ -33,5 +37,5 @@
   .chip { flex: none; width: 40px; text-align: center; font-size: 9.5px; border: 1px solid var(--line-2); color: var(--muted); border-radius: 8px; line-height: 14px; }
   .chip.today { border-color: var(--accent); color: var(--accent); }
   .chip.week { border-color: var(--blue); color: var(--blue); }
-  .empty { font-size: 11px; padding: 2px 0; }
+  .goals { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
 </style>

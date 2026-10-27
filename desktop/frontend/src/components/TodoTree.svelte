@@ -216,7 +216,7 @@
   {/if}
 {/snippet}
 
-<h6>To-dos</h6>
+
 <button class="ghost row node" onclick={() => toggleOpen('g:all')}>
   <span class="caret">{open.includes('g:all') ? '▾' : '▸'}</span><b>All</b><span class="faint n">{ALL.reduce((n, [w]) => n + openIn(allNodes[w]), 0)}</span>
 </button>
@@ -297,6 +297,9 @@
 
 <style>
   .row { display: flex; align-items: center; gap: 6px; min-height: 21px; width: 100%; }
+  .t { align-items: flex-start; }
+  .t > :global(*) { margin-top: 2px; }
+  .t > .title { margin-top: 0; }
   .node { text-align: left; color: var(--text); padding: 1px 2px; display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; }
   .node:hover { background: none; color: var(--strong); }
   .caret { width: 10px; color: var(--muted); flex: none; padding: 0; font-size: inherit; }
@@ -304,7 +307,8 @@
   .n { margin-left: 6px; font-size: 10.5px; }
   .hz .plus { display: none; padding: 0 5px; }
   .hz:hover .plus { display: inline; }
-  .title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
+  /* Long titles wrap rather than hide behind an ellipsis. */
+  .title { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; padding: 2px 0; cursor: text; }
   .done .title { text-decoration: line-through; color: var(--faint); }
   .acts { display: none; gap: 1px; align-items: center; flex: none; }
   .t:hover .acts { display: flex; }

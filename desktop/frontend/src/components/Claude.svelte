@@ -78,7 +78,7 @@
 </div>
 
 <style>
-  .claude { position: relative; height: 100%; min-height: 0; display: flex; }
+  .claude { position: relative; flex: 1; width: 100%; min-width: 0; height: 100%; min-height: 0; display: flex; }
   .term { flex: 1; min-width: 0; min-height: 0; background: #0c0c0c; border-radius: 4px; padding: 4px; }
   .term :global(.xterm) { height: 100%; }
   .st { position: absolute; right: 8px; bottom: 6px; font-size: 10px; }

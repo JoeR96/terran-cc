@@ -25,7 +25,6 @@ func ClaudeStarter(dir string) Starter {
 		if again || hasConversation(dir) {
 			cmd += " --continue"
 		}
-		env := append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
-		return conpty.Start(cmd, conpty.ConPtyDimensions(cols, rows), conpty.ConPtyWorkDir(dir), conpty.ConPtyEnv(env))
+		return conpty.Start(cmd, conpty.ConPtyDimensions(cols, rows), conpty.ConPtyWorkDir(dir), conpty.ConPtyEnv(cleanEnv(os.Environ())))
 	}
 }

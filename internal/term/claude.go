@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 // claudeMD tells the assistant session what it is for. Written once; Joe
@@ -88,4 +89,20 @@ func hasConversation(dir string) bool {
 	}
 	m, _ := filepath.Glob(filepath.Join(home, ".claude", "projects", nonWord.ReplaceAllString(abs, "-"), "*.jsonl"))
 	return len(m) > 0
+}
+
+// cleanEnv is the environment for the session's claude: tccd's own, minus
+// any Claude Code session markers it inherited (a claude started inside
+// another session turns transcript saving off, which breaks --continue),
+// plus a colour terminal.
+func cleanEnv(env []string) []string {
+	var out []string
+	for _, kv := range env {
+		k, _, _ := strings.Cut(kv, "=")
+		if strings.EqualFold(k, "CLAUDECODE") || strings.HasPrefix(strings.ToUpper(k), "CLAUDE_CODE_") {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out, "TERM=xterm-256color", "COLORTERM=truecolor")
 }

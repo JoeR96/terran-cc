@@ -12,6 +12,9 @@
   import Notes from '../components/Notes.svelte'
   import Vault from '../components/Vault.svelte'
   import OsrsView from '../components/OsrsView.svelte'
+  import Split from '../components/Split.svelte'
+  import Dock from '../components/Dock.svelte'
+  import { normalize, defaultLayout } from '../lib/dock.js'
   import { route } from '../lib/route.svelte.js'
 
   // Wider than this, the widget shows habits across the top and splits the
@@ -70,6 +73,38 @@
       localStorage.setItem('tcc.side.box', boxOpen ? 'open' : 'closed')
     } catch {}
   }
+  // Wide layouts are a dock: panels in tab groups you drag between, with
+  // columns and stacks you resize. Kept per window.
+  let layout = $state(normalize((() => { try { return JSON.parse(localStorage.getItem('tcc.dock')) } catch { return null } })()))
+  function setLayout(l) {
+    layout = l
+    try {
+      localStorage.setItem('tcc.dock', JSON.stringify(l))
+    } catch {}
+  }
+  function resetLayout() {
+    setLayout(defaultLayout())
+    menu = false
+  }
+
+  // Goals and OSRS can show stacked, with a divider, instead of as tabs;
+  // so can Claude and the scratchpad.
+  const keep = (k, d) => {
+    try {
+      return localStorage.getItem(k) ?? d
+    } catch {
+      return d
+    }
+  }
+  const put = (k, v) => {
+    try {
+      localStorage.setItem(k, v)
+    } catch {}
+  }
+  let midSplit = $state(keep('tcc.side.midsplit', '0') === '1')
+  let boxSplit = $state(keep('tcc.side.boxsplit', '0') === '1')
+  const toggleMidSplit = () => put('tcc.side.midsplit', (midSplit = !midSplit) ? '1' : '0')
+  const toggleBoxSplit = () => put('tcc.side.boxsplit', (boxSplit = !boxSplit) ? '1' : '0')
   // The middle column swaps between goals + projects and the OSRS view.
   let mid = $state((() => { try { return localStorage.getItem('tcc.side.mid') || 'goals' } catch { return 'goals' } })())
   function setMid(t) {
@@ -94,28 +129,79 @@
   }
 </script>
 
-{#snippet middle()}
-  <div class="tabs">
-    <button class="ghost" class:on={mid === 'goals'} onclick={() => setMid('goals')}>Goals</button>
-    <button class="ghost" class:on={mid === 'osrs'} onclick={() => setMid('osrs')}>OSRS</button>
-  </div>
-  {#if mid === 'osrs'}
-    <OsrsView onopen={openItem} />
-  {:else}
-    <div class="part"><Goals onopen={openItem} /></div>
-    <div class="part"><ProjectTree onopen={openItem} /></div>
+{#snippet dockPanel(key)}
+  {#if key === 'todos'}
+    <div class="col"><TodoTree onopen={openItem} /></div>
+  {:else if key === 'projects'}
+    <div class="col"><Goals onopen={openItem} /><ProjectTree onopen={openItem} /></div>
+  {:else if key === 'osrs'}
+    <div class="col"><OsrsView onopen={openItem} /></div>
+  {:else if key === 'claude'}
+    <div class="col term"><Claude /></div>
+  {:else if key === 'scratch'}
+    <div class="col"><Notes /></div>
   {/if}
 {/snippet}
 
-{#snippet box()}
-  <div class="tabs">
-    <button class="ghost" class:on={boxOpen && tab === 'chat'} onclick={() => (setTab('chat'), boxOpen || toggleBox())}>Claude</button>
-    <button class="ghost" class:on={boxOpen && tab === 'notes'} onclick={() => (setTab('notes'), boxOpen || toggleBox())}>Notes</button>
-    <span class="grow"></span>
-    {#if boxOpen}<button class="ghost fold" title="Fold away" onclick={toggleBox}>{wider ? '»' : '▾'}</button>{/if}
+{#snippet goalsPane()}
+  <div class="col">
+    <Goals onopen={openItem} />
+    <ProjectTree onopen={openItem} />
   </div>
-  {#if boxOpen}<div class="tabbody">{#if tab === 'notes'}<Notes />{:else}<Claude />{/if}</div>{/if}
 {/snippet}
+{#snippet osrsPane()}<div class="col"><OsrsView onopen={openItem} /></div>{/snippet}
+{#snippet claudePane()}<div class="col term"><Claude /></div>{/snippet}
+{#snippet scratchPane()}<div class="col"><Notes /></div>{/snippet}
+
+{#snippet middle()}
+  <div class="pane-wrap">
+    <div class="tabs">
+      {#if midSplit}
+        <span class="lbl">Goals · OSRS</span>
+      {:else}
+        <button class="ghost" class:on={mid === 'goals'} onclick={() => setMid('goals')}>Goals</button>
+        <button class="ghost" class:on={mid === 'osrs'} onclick={() => setMid('osrs')}>OSRS</button>
+      {/if}
+      <span class="grow"></span>
+      <button class="ghost fold" class:on={midSplit} title={midSplit ? 'Show as tabs' : 'Show both, stacked'} onclick={toggleMidSplit}>⇅</button>
+    </div>
+    {#if midSplit}
+      <Split key="mid" dir="col" defaults={[45, 55]} panes={[goalsPane, osrsPane]} />
+    {:else if mid === 'osrs'}
+      {@render osrsPane()}
+    {:else}
+      {@render goalsPane()}
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet box()}
+  <div class="pane-wrap" class:shut={!boxOpen}>
+    <div class="tabs">
+      {#if boxOpen && boxSplit}
+        <span class="lbl">Claude · Scratch</span>
+      {:else}
+        <button class="ghost" class:on={boxOpen && tab === 'chat'} onclick={() => (setTab('chat'), boxOpen || toggleBox())}>Claude</button>
+        <button class="ghost" class:on={boxOpen && tab === 'notes'} onclick={() => (setTab('notes'), boxOpen || toggleBox())}>Scratch</button>
+      {/if}
+      <span class="grow"></span>
+      {#if boxOpen}
+        <button class="ghost fold" class:on={boxSplit} title={boxSplit ? 'Show as tabs' : 'Show both, stacked'} onclick={toggleBoxSplit}>⇅</button>
+        <button class="ghost fold" title="Fold away" onclick={toggleBox}>{wider ? '»' : '▾'}</button>
+      {/if}
+    </div>
+    {#if boxOpen}
+      {#if boxSplit}
+        <Split key="box" dir="col" defaults={[70, 30]} panes={[claudePane, scratchPane]} />
+      {:else if tab === 'notes'}
+        {@render scratchPane()}
+      {:else}
+        {@render claudePane()}
+      {/if}
+    {/if}
+  </div>
+{/snippet}
+
 
 <svelte:window onkeydown={onKey} />
 
@@ -126,6 +212,10 @@
       {#if conn().shell}
         <button class="ghost nodrag pin" class:on={onTop} title={onTop ? 'Always on top (Ctrl+T to turn off)' : 'Not on top (Ctrl+T to pin)'} onclick={setTop}>📌</button>
       {/if}
+      <span class="pagetabs nodrag">
+        <button class="ghost" class:on={page === 'hud'} onclick={() => setPage('hud')}>HUD</button>
+        <button class="ghost" class:on={page === 'notes'} title="Your Obsidian vault" onclick={() => setPage('notes')}>Vault</button>
+      </span>
     </span>
     <span class="nodrag btns">
       <button class="ghost" title="Menu" onclick={() => (menu = !menu)}>⋯</button>
@@ -141,13 +231,9 @@
       {#if conn().shell}
         <button class="ghost" onclick={setTop}>{onTop ? '✓ ' : ''}Always on top <span class="faint">Ctrl+T</span></button>
       {/if}
+      <button class="ghost" onclick={resetLayout}>Reset the panel layout</button>
     </div>
   {/if}
-
-  <div class="pagetabs nodrag">
-    <button class="ghost" class:on={page === 'hud'} onclick={() => setPage('hud')}>HUD</button>
-    <button class="ghost" class:on={page === 'notes'} onclick={() => setPage('notes')}>Notes</button>
-  </div>
 
   {#if locking && !dismissed && page === 'hud'}
     <button class="lock" title="Click to show the whole widget" onclick={() => (dismissed = true)}>
@@ -163,35 +249,21 @@
         <div class="bandtimer"><Timer /></div>
         <div class="bandhabits"><Habits wide title={false} /></div>
       </div>
-      <div class="cols three" class:boxed={!boxOpen}>
-        <div class="col"><TodoTree onopen={openItem} /></div>
-        <div class="col">{@render middle()}</div>
-        {#if boxOpen}
-          <div class="col boxcol">{@render box()}</div>
-        {:else}
-          <button class="ghost rail" title="Open Claude and notes" onclick={toggleBox}><span>« Claude · Notes</span></button>
-        {/if}
-      </div>
+      <Dock {layout} panel={dockPanel} onchange={setLayout} />
     </div>
   {:else if wide}
     <div class="body wide">
       <div class="sec"><Timer /></div>
       <div class="sec"><Habits wide /></div>
-      <div class="cols">
-        <div class="col"><TodoTree onopen={openItem} /></div>
-        <div class="col right">
-          <div class="scroll">{@render middle()}</div>
-          <div class="chatbox" class:shut={!boxOpen}>{@render box()}</div>
-        </div>
-      </div>
+      <Dock {layout} panel={dockPanel} onchange={setLayout} />
     </div>
   {:else}
     <div class="body">
       <div class="sec"><Timer compact /></div>
       <div class="sec"><Habits /></div>
       <div class="sec"><TodoTree onopen={openItem} /></div>
-      <div class="sec">{@render middle()}</div>
-      <div class="sec chatnarrow" class:shut={!boxOpen}>{@render box()}</div>
+      <div class="sec narrowpane">{@render middle()}</div>
+      <div class="sec narrowpane" class:shut={!boxOpen}>{@render box()}</div>
     </div>
   {/if}
 </div>
@@ -212,35 +284,30 @@
   .wide .sec { flex: none; }
   .sec { padding: 8px 10px; border-bottom: 1px solid var(--line); }
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 10px; }
-  .col { min-height: 0; overflow-y: auto; background: var(--bg); border-radius: 7px; padding: 8px 10px; }
+  .cols.flex { display: flex; gap: 0; padding: 6px 6px 8px; }
+  .col { flex: 1; min-height: 0; overflow-y: auto; background: var(--bg); border-radius: 7px; padding: 8px 10px; }
+  .col.term { padding: 4px; overflow: hidden; display: flex; }
+  .pane-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .narrowpane { height: 420px; display: flex; flex-direction: column; }
+  .narrowpane.shut { height: auto; }
+  .lbl { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; color: var(--muted); padding: 1px 6px; }
+  .tabs .fold.on { color: var(--accent); }
   .band { display: flex; gap: 14px; align-items: stretch; }
   .bandtimer { flex: none; width: 250px; }
   .bandhabits { flex: 1; min-width: 0; display: flex; }
   .bandhabits > :global(.habs) { flex: 1; }
-  .cols.three { grid-template-columns: 27fr 40fr 33fr; }
-  .boxcol { display: flex; flex-direction: column; overflow: hidden; }
-  .col.right { display: flex; flex-direction: column; overflow: hidden; }
-  .scroll { flex: 1; min-height: 0; overflow-y: auto; }
-  .chatbox { flex: none; height: 42%; min-height: 160px; border-top: 1px solid var(--line); padding-top: 8px; }
-  .chatnarrow { height: 320px; }
-  .chatbox, .chatnarrow { display: flex; flex-direction: column; }
-  .chatbox.shut, .chatnarrow.shut { height: auto; min-height: 0; }
-  .cols.three.boxed { grid-template-columns: 38fr 62fr 26px; }
-  .rail { padding: 0; border-radius: 7px; background: var(--bg); display: flex; justify-content: center; }
+  .rail { flex: none; width: 26px; margin-left: 8px; padding: 0; border-radius: 7px; background: var(--bg); display: flex; justify-content: center; }
   .rail span { writing-mode: vertical-rl; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; padding: 10px 0; }
   .rail:hover { background: var(--panel-2); }
   .grow { flex: 1; }
   .tabs .fold { letter-spacing: 0; }
-  .pagetabs { display: flex; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--line); flex: none; background: var(--panel-2); }
-  .pagetabs button { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; padding: 2px 8px; }
+  .pagetabs { display: flex; gap: 2px; margin-left: 10px; }
+  .pagetabs button { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; padding: 0 8px; }
   .pagetabs button.on { color: var(--text); background: var(--btn); }
   .vaultpage { flex: 1; min-height: 0; }
   .tabs { display: flex; gap: 2px; margin-bottom: 6px; flex: none; }
   .tabs button { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600; padding: 1px 6px; }
   .tabs button.on { color: var(--text); background: var(--btn); }
-  .tabbody { flex: 1; min-height: 0; }
-  .part { padding: 0 0 8px; }
-  .part + .part { border-top: 1px solid var(--line); padding-top: 8px; }
   .lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: var(--panel); border-radius: 0; padding: 16px; }
   .lock:hover { background: var(--panel); }
   .lock .time { font-size: clamp(40px, 16vw, 140px); font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }

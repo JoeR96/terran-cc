@@ -82,7 +82,7 @@
   </div>
 {/snippet}
 
-<h6>All projects <button class="ghost filter" title="Switch between active work and everything open" onclick={setAll}>{all ? 'all open' : 'active'}</button></h6>
+<h6 title="Hover a ticket and click T, W or M to make it a goal for today, this week or this month">All projects <button class="ghost filter" title="Switch between active work and everything open" onclick={setAll}>{all ? 'all open' : 'active'}</button></h6>
 {#each tree as p (p.id)}
   {@const pk = 'p' + p.id}
   <button
@@ -134,6 +134,9 @@
   .proj, .t { cursor: grab; }
   .filter { font-size: 10px; letter-spacing: 0; text-transform: none; padding: 0 5px; }
   .row { display: flex; align-items: center; gap: 6px; min-height: 21px; width: 100%; }
+  .t { align-items: flex-start; }
+  .t > :global(*) { margin-top: 2px; }
+  .t > .title { margin-top: 0; }
   .node { text-align: left; color: var(--text); padding: 1px 2px; display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; }
   .node:hover { background: none; color: var(--strong); }
   .caret { width: 10px; color: var(--muted); flex: none; }
@@ -141,7 +144,8 @@
   .feat .open { display: none; padding: 0 3px; font-size: 11px; }
   .feat:hover .open { display: inline; }
   .t .box { margin-left: 14px; }
-  .title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  /* Long titles wrap rather than hide behind an ellipsis. */
+  .title { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; padding: 2px 0; cursor: pointer; }
   .title:hover { color: var(--strong); }
   .st { flex: none; font-size: 9.5px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 3px; padding: 0 4px; line-height: 14px; }
   .st.review { color: var(--yellow); border-color: var(--yellow-line); }

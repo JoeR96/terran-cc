@@ -148,3 +148,11 @@ func TestSetupDirKeepsEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCleanEnvDropsParentClaudeMarkers(t *testing.T) {
+	got := cleanEnv([]string{"PATH=x", "CLAUDECODE=1", "CLAUDE_CODE_CHILD_SESSION=abc", "CLAUDE_CODE_ENTRYPOINT=cli", "HOME=y", "ANTHROPIC_MODEL=keep"})
+	want := "PATH=x|HOME=y|ANTHROPIC_MODEL=keep|TERM=xterm-256color|COLORTERM=truecolor"
+	if strings.Join(got, "|") != want {
+		t.Fatalf("%v", got)
+	}
+}
