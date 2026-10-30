@@ -45,3 +45,53 @@ export function embeds(notePath, text, files) {
   }
   return out
 }
+
+// A name typed for a new or renamed vault entry: one path segment, not
+// hidden.
+function cleanName(name) {
+  const n = (name || '').trim()
+  return !n || n.startsWith('.') || /[\\/:*?"<>|]/.test(n) ? '' : n
+}
+
+const join = (dir, name) => (dir ? `${dir}/${name}` : name)
+const parentOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '')
+
+// newPath is where a new note or folder called name goes in dir, or ''
+// when the name won't do.
+export function newPath(dir, name, kind) {
+  let n = cleanName(name)
+  if (!n) return ''
+  if (kind === 'note' && !/\.md$/i.test(n)) n += '.md'
+  return join(dir, n)
+}
+
+// renamed is path with its last segment renamed, keeping a file's
+// extension.
+export function renamed(path, name, dir) {
+  let n = cleanName(name)
+  if (!n) return ''
+  const ext = dir ? '' : (path.match(/\.[^./]+$/) || [''])[0]
+  if (ext && !n.toLowerCase().endsWith(ext.toLowerCase())) n += ext
+  return join(parentOf(path), n)
+}
+
+// folderOf is the folder new notes go in when entry is selected.
+export function folderOf(entry) {
+  if (!entry) return ''
+  return entry.dir ? entry.path : parentOf(entry.path)
+}
+
+// moved is p after from was renamed to to.
+export function moved(p, from, to) {
+  if (p === from) return to
+  return p.startsWith(from + '/') ? to + p.slice(from.length) : p
+}
+
+// untitled is a note name not yet used in dir.
+export function untitled(dir, paths) {
+  const taken = new Set(paths.map(p => p.toLowerCase()))
+  for (let i = 0; ; i++) {
+    const name = i ? `Untitled ${i}` : 'Untitled'
+    if (!taken.has(join(dir, name + '.md').toLowerCase())) return name
+  }
+}

@@ -464,6 +464,112 @@ func TestVaultWriteNote(t *testing.T) {
 	}
 }
 
+func TestVaultCreateNoteAndFolder(t *testing.T) {
+	vault := t.TempDir()
+	os.WriteFile(filepath.Join(vault, "Home.md"), []byte("keep"), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	if c := e.do(t, "POST", "/api/vault/dir?path=Ideas", nil, nil); c != 200 {
+		t.Fatalf("mkdir %d", c)
+	}
+	if c := e.do(t, "POST", "/api/vault/note?path=Ideas/new.md", nil, nil); c != 200 {
+		t.Fatalf("create %d", c)
+	}
+	if b, err := os.ReadFile(filepath.Join(vault, "Ideas", "new.md")); err != nil || len(b) != 0 {
+		t.Fatalf("new note %q %v", b, err)
+	}
+	if c := e.do(t, "POST", "/api/vault/note?path=Home.md", nil, nil); c != 409 {
+		t.Fatalf("create over a note: %d, want 409", c)
+	}
+	if b, _ := os.ReadFile(filepath.Join(vault, "Home.md")); string(b) != "keep" {
+		t.Fatalf("existing note changed: %q", b)
+	}
+	if c := e.do(t, "POST", "/api/vault/dir?path=Ideas", nil, nil); c != 409 {
+		t.Fatalf("mkdir twice: %d, want 409", c)
+	}
+	for _, bad := range []string{"../out.md", "Missing/new.md", "pic.png", ".obsidian/x.md", ".trash/x.md"} {
+		if c := e.do(t, "POST", "/api/vault/note?path="+bad, nil, nil); c != 400 {
+			t.Errorf("note %s: %d, want 400", bad, c)
+		}
+	}
+	for _, bad := range []string{"../out", ".obsidian/x", "Missing/deep"} {
+		if c := e.do(t, "POST", "/api/vault/dir?path="+bad, nil, nil); c != 400 {
+			t.Errorf("dir %s: %d, want 400", bad, c)
+		}
+	}
+}
+
+func TestVaultMove(t *testing.T) {
+	vault := t.TempDir()
+	os.MkdirAll(filepath.Join(vault, "A"), 0o755)
+	os.MkdirAll(filepath.Join(vault, "B"), 0o755)
+	os.WriteFile(filepath.Join(vault, "A", "one.md"), []byte("1"), 0o644)
+	os.WriteFile(filepath.Join(vault, "two.md"), []byte("2"), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	mv := func(from, to string) int {
+		return e.do(t, "POST", "/api/vault/move", map[string]string{"from": from, "to": to}, nil)
+	}
+	if c := mv("A/one.md", "B/uno.md"); c != 200 {
+		t.Fatalf("move %d", c)
+	}
+	if b, err := os.ReadFile(filepath.Join(vault, "B", "uno.md")); err != nil || string(b) != "1" {
+		t.Fatalf("moved note %q %v", b, err)
+	}
+	if c := mv("B/uno.md", "two.md"); c != 409 {
+		t.Fatalf("move over a note: %d, want 409", c)
+	}
+	if c := mv("two.md", "Two.md"); c != 200 {
+		t.Fatalf("case-only rename %d", c)
+	}
+	if c := mv("B", "C"); c != 200 {
+		t.Fatalf("rename folder %d", c)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "C", "uno.md")); err != nil {
+		t.Fatalf("folder not renamed: %v", err)
+	}
+	for _, p := range [][2]string{{"C", "C/inner"}, {"Two.md", "../out.md"}, {"nope.md", "x.md"}, {"Two.md", ".trash/Two.md"}, {"Two.md", "two.txt"}} {
+		if c := mv(p[0], p[1]); c != 400 && c != 404 {
+			t.Errorf("%s -> %s: %d, want 400/404", p[0], p[1], c)
+		}
+	}
+}
+
+func TestVaultDeleteMovesToTrash(t *testing.T) {
+	vault := t.TempDir()
+	os.MkdirAll(filepath.Join(vault, "A"), 0o755)
+	os.WriteFile(filepath.Join(vault, "A", "one.md"), []byte("1"), 0o644)
+	os.WriteFile(filepath.Join(vault, "one.md"), []byte("root"), 0o644)
+	e := setupWith(t, WithVault(vault))
+
+	if c := e.do(t, "DELETE", "/api/vault/entry?path=A/one.md", nil, nil); c != 200 {
+		t.Fatalf("delete %d", c)
+	}
+	if c := e.do(t, "DELETE", "/api/vault/entry?path=one.md", nil, nil); c != 200 {
+		t.Fatalf("delete second %d", c)
+	}
+	if b, err := os.ReadFile(filepath.Join(vault, ".trash", "one.md")); err != nil || string(b) != "1" {
+		t.Fatalf("first in trash %q %v", b, err)
+	}
+	if b, err := os.ReadFile(filepath.Join(vault, ".trash", "one 1.md")); err != nil || string(b) != "root" {
+		t.Fatalf("second in trash %q %v", b, err)
+	}
+	if c := e.do(t, "DELETE", "/api/vault/entry?path=A", nil, nil); c != 200 {
+		t.Fatalf("delete folder %d", c)
+	}
+	if _, err := os.Stat(filepath.Join(vault, ".trash", "A")); err != nil {
+		t.Fatalf("folder not in trash: %v", err)
+	}
+	for _, bad := range []string{"../x", ".trash/one.md", ".obsidian"} {
+		if c := e.do(t, "DELETE", "/api/vault/entry?path="+bad, nil, nil); c != 400 {
+			t.Errorf("%s: %d, want 400", bad, c)
+		}
+	}
+	if c := e.do(t, "DELETE", "/api/vault/entry?path=gone.md", nil, nil); c != 404 {
+		t.Errorf("missing: %d, want 404", c)
+	}
+}
+
 func TestVaultFileServesImages(t *testing.T) {
 	vault := t.TempDir()
 	os.MkdirAll(filepath.Join(vault, "Hobbies"), 0o755)

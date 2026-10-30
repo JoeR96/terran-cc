@@ -6,6 +6,7 @@
   import { markdown } from '@codemirror/lang-markdown'
   import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
   import { indentWithTab } from '@codemirror/commands'
+  import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search'
   import { tags as t } from '@lezer/highlight'
   import { embeds } from '../lib/vault.js'
   import { vaultFile } from '../lib/api.js'
@@ -13,7 +14,8 @@
   // An always-editable markdown note, like Obsidian's live preview: the
   // text stays editable, headings and emphasis are styled as you type, and
   // embedded images show under their line.
-  let { path, text, files = [], onchange } = $props()
+  // focus puts the cursor in the note, for one just made.
+  let { path, text, files = [], focus = false, onchange } = $props()
 
   let host
   let view
@@ -74,6 +76,12 @@
       '.cm-cursor': { borderLeftColor: 'var(--accent)' },
       '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { background: 'var(--btn-hover) !important' },
       '.cm-activeLine': { background: 'transparent' },
+      '.cm-panels': { background: 'var(--bg)', color: 'var(--text)', borderColor: 'var(--line-2)' },
+      '.cm-panel.cm-search': { fontFamily: 'var(--font)', fontSize: '12px' },
+      '.cm-panel.cm-search input, .cm-panel.cm-search button': { fontFamily: 'var(--font)', fontSize: '12px' },
+      '.cm-searchMatch': { background: 'rgba(193, 156, 0, 0.35)' },
+      '.cm-searchMatch-selected': { background: 'rgba(193, 156, 0, 0.6)' },
+      '.cm-selectionMatch': { background: 'var(--btn)' },
       '.cm-embed': { display: 'block', maxWidth: '100%', margin: '6px 0', borderRadius: '4px' },
     },
     { dark: true },
@@ -84,7 +92,9 @@
       doc,
       extensions: [
         minimalSetup,
-        keymap.of([indentWithTab]),
+        keymap.of([indentWithTab, ...searchKeymap]),
+        search({ top: true }),
+        highlightSelectionMatches(),
         EditorView.lineWrapping,
         markdown(),
         syntaxHighlighting(style),
@@ -99,6 +109,7 @@
 
   onMount(() => {
     view = new EditorView({ state: stateFor(path, text), parent: host })
+    if (focus) view.focus()
   })
   onDestroy(() => view?.destroy())
 
@@ -114,6 +125,7 @@
       shown = p
       view.setState(stateFor(p, v))
     }
+    if (focus && !view.hasFocus) view.focus()
   })
 </script>
 

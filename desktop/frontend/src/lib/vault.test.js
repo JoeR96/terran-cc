@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { noteParts, embeds } from './vault.js'
+import { noteParts, embeds, newPath, renamed, folderOf, moved, untitled } from './vault.js'
 
 const files = [
   'Pasted image 20261022223151.png',
@@ -57,5 +57,44 @@ describe('embeds', () => {
       { from: 2, to: 14, path: 'Hobbies/OSRS/map.png' },
       { from: 17, to: 30, path: 'pic.jpg' },
     ])
+  })
+})
+
+describe('vault edits', () => {
+  it('names a new note inside a folder and adds .md', () => {
+    expect(newPath('Ideas', 'plan', 'note')).toBe('Ideas/plan.md')
+    expect(newPath('', 'plan.md', 'note')).toBe('plan.md')
+    expect(newPath('', ' Projects ', 'dir')).toBe('Projects')
+  })
+
+  it('rejects names that are empty, hidden or have slashes', () => {
+    for (const bad of ['', '  ', '.secret', 'a/b', 'a\\b', '..', 'a:b']) {
+      expect(newPath('', bad, 'note')).toBe('')
+    }
+  })
+
+  it('renames in place and keeps the extension', () => {
+    expect(renamed('Ideas/plan.md', 'roadmap', false)).toBe('Ideas/roadmap.md')
+    expect(renamed('Ideas/plan.md', 'roadmap.md', false)).toBe('Ideas/roadmap.md')
+    expect(renamed('shot.png', 'cover', false)).toBe('cover.png')
+    expect(renamed('Ideas', 'Plans', true)).toBe('Plans')
+    expect(renamed('Ideas/plan.md', 'a/b', false)).toBe('')
+  })
+
+  it('finds the folder new things go in', () => {
+    expect(folderOf({ path: 'Ideas', dir: true })).toBe('Ideas')
+    expect(folderOf({ path: 'Ideas/plan.md', dir: false })).toBe('Ideas')
+    expect(folderOf(undefined)).toBe('')
+  })
+
+  it('moves paths under a renamed folder', () => {
+    expect(moved('Ideas/plan.md', 'Ideas', 'Plans')).toBe('Plans/plan.md')
+    expect(moved('Ideas', 'Ideas', 'Plans')).toBe('Plans')
+    expect(moved('IdeasOld/x.md', 'Ideas', 'Plans')).toBe('IdeasOld/x.md')
+  })
+
+  it('picks a free untitled name', () => {
+    expect(untitled('Ideas', ['Ideas/Untitled.md', 'Ideas/Untitled 1.md'])).toBe('Untitled 2')
+    expect(untitled('', ['Ideas/Untitled.md'])).toBe('Untitled')
   })
 })

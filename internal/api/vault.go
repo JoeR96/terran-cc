@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -29,6 +31,54 @@ func (s *server) vaultPath(rel string) string {
 		return ""
 	}
 	return p
+}
+
+// editablePath is vaultPath for routes that change the vault: it also keeps
+// out of hidden folders like .obsidian and .trash, and needs the parent
+// folder to exist.
+func (s *server) editablePath(rel string) (string, error) {
+	p := s.vaultPath(rel)
+	if p == "" {
+		return "", badRequest("path must be inside the vault")
+	}
+	for _, bit := range strings.Split(filepath.ToSlash(rel), "/") {
+		if strings.HasPrefix(bit, ".") {
+			return "", badRequest("path can't be in a hidden folder")
+		}
+	}
+	if fi, err := os.Stat(filepath.Dir(p)); err != nil || !fi.IsDir() {
+		return "", badRequest("folder does not exist")
+	}
+	return p, nil
+}
+
+func exists(p string) bool {
+	_, err := os.Lstat(p)
+	return err == nil
+}
+
+// trashPath is a free name for p in the vault's .trash folder, where
+// Obsidian puts deleted files too.
+func (s *server) trashPath(p string) (string, error) {
+	trash := filepath.Join(s.vault, ".trash")
+	if err := os.MkdirAll(trash, 0o755); err != nil {
+		return "", err
+	}
+	base := filepath.Base(p)
+	ext := filepath.Ext(base)
+	if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+		ext = ""
+	}
+	stem := strings.TrimSuffix(base, ext)
+	for i := 0; ; i++ {
+		name := base
+		if i > 0 {
+			name = fmt.Sprintf("%s %d%s", stem, i, ext)
+		}
+		if t := filepath.Join(trash, name); !exists(t) {
+			return t, nil
+		}
+	}
 }
 
 func (s *server) vaultRoutes(mux *http.ServeMux) {
@@ -177,6 +227,120 @@ func (s *server) vaultRoutes(mux *http.ServeMux) {
 			return
 		}
 		writeJSON(w, 200, map[string]string{"path": rel})
+	})
+	mux.HandleFunc("POST /api/vault/note", func(w http.ResponseWriter, r *http.Request) {
+		if !need(w) {
+			return
+		}
+		rel := r.URL.Query().Get("path")
+		p, err := s.editablePath(rel)
+		if err == nil && !strings.EqualFold(filepath.Ext(p), ".md") {
+			err = badRequest("path must be a .md file")
+		}
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			writeJSON(w, 409, map[string]string{"error": "a file with that name already exists"})
+			return
+		}
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		f.Close()
+		writeJSON(w, 200, map[string]string{"path": rel})
+	})
+	mux.HandleFunc("POST /api/vault/dir", func(w http.ResponseWriter, r *http.Request) {
+		if !need(w) {
+			return
+		}
+		rel := r.URL.Query().Get("path")
+		p, err := s.editablePath(rel)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		if err := os.Mkdir(p, 0o755); err != nil {
+			if errors.Is(err, fs.ErrExist) {
+				writeJSON(w, 409, map[string]string{"error": "that already exists"})
+				return
+			}
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"path": rel})
+	})
+	mux.HandleFunc("POST /api/vault/move", func(w http.ResponseWriter, r *http.Request) {
+		if !need(w) {
+			return
+		}
+		var body struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		}
+		if err := decode(r, &body); err != nil {
+			writeErr(w, err)
+			return
+		}
+		from, err := s.editablePath(body.From)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		to, err := s.editablePath(body.To)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		fi, err := os.Stat(from)
+		if err != nil {
+			writeJSON(w, 404, map[string]string{"error": "no such file"})
+			return
+		}
+		if !fi.IsDir() && !strings.EqualFold(filepath.Ext(from), filepath.Ext(to)) {
+			writeErr(w, badRequest("a rename can't change the file type"))
+			return
+		}
+		if in, err := filepath.Rel(from, to); err == nil && in != "." && !strings.HasPrefix(in, "..") {
+			writeErr(w, badRequest("can't move a folder into itself"))
+			return
+		}
+		// A case-only rename finds itself on Windows, so it isn't a clash.
+		if exists(to) && !strings.EqualFold(from, to) {
+			writeJSON(w, 409, map[string]string{"error": "a file with that name already exists"})
+			return
+		}
+		if err := os.Rename(from, to); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"path": body.To})
+	})
+	mux.HandleFunc("DELETE /api/vault/entry", func(w http.ResponseWriter, r *http.Request) {
+		if !need(w) {
+			return
+		}
+		p, err := s.editablePath(r.URL.Query().Get("path"))
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		if !exists(p) {
+			writeJSON(w, 404, map[string]string{"error": "no such file"})
+			return
+		}
+		t, err := s.trashPath(p)
+		if err == nil {
+			err = os.Rename(p, t)
+		}
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"trash": filepath.ToSlash(strings.TrimPrefix(t, s.vault+string(filepath.Separator)))})
 	})
 	mux.HandleFunc("GET /api/vault/file", func(w http.ResponseWriter, r *http.Request) {
 		if !need(w) {
