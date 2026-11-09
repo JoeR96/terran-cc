@@ -19,12 +19,13 @@ import (
 	"terrancc/internal/events"
 	"terrancc/internal/osrs"
 	"terrancc/internal/store"
+	"terrancc/internal/strength"
 	"terrancc/internal/term"
 	"terrancc/internal/timer"
 )
 
 // Version is a var so tests can build an "older" tccd with -ldflags -X.
-var Version = "0.14.1"
+var Version = "0.15.0"
 
 // TimerConfigKey is the settings key the timer config is persisted under.
 const TimerConfigKey = "timer.config"
@@ -41,6 +42,7 @@ type server struct {
 	vault    string
 	term     *term.Session
 	osrsSync sync.Mutex
+	strength *strength.Service
 }
 
 type Option func(*server)
@@ -74,6 +76,7 @@ func New(svc *core.Service, t *timer.Timer, bus *events.Bus, token, home string,
 	s.projectRoutes(mux)
 	s.itemRoutes(mux)
 	s.habitRoutes(mux)
+	s.strengthRoutes(mux)
 	s.timerRoutes(mux)
 	s.uiRoutes(mux)
 	s.osrsRoutes(mux)
@@ -166,8 +169,12 @@ func writeErr(w http.ResponseWriter, err error) {
 		code = 404
 	case errors.Is(err, core.ErrInvalid), errors.Is(err, errBadRequest):
 		code = 400
-	case errors.Is(err, store.ErrConflict):
+	case errors.Is(err, store.ErrConflict), errors.Is(err, strength.ErrNotConnected):
 		code = 409
+	case errors.Is(err, strength.ErrRejected):
+		code = 400
+	case errors.Is(err, strength.ErrUnreachable):
+		code = 502
 	}
 	writeJSON(w, code, map[string]string{"error": err.Error()})
 }
