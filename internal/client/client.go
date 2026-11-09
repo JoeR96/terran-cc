@@ -22,6 +22,7 @@ import (
 	"terrancc/internal/config"
 	"terrancc/internal/core"
 	"terrancc/internal/model"
+	"terrancc/internal/strength"
 )
 
 type Client struct {
@@ -190,6 +191,11 @@ type HabitsDay struct {
 	Date   string           `json:"date"`
 	Streak int              `json:"streak"`
 	Habits []model.HabitDay `json:"habits"`
+	// Source is "local" or "99-strength".
+	Source string `json:"source"`
+	// StreakInfo and Sync are only there when habits come from 99-Strength.
+	StreakInfo *strength.StreakInfo `json:"streak_info,omitempty"`
+	Sync       *strength.Sync       `json:"sync,omitempty"`
 }
 
 func (c *Client) Habits(date string) (HabitsDay, error) {
@@ -214,6 +220,33 @@ func (c *Client) AddHabit(h model.Habit) (model.Habit, error) {
 func (c *Client) EditHabit(ref string, patch map[string]any) (model.Habit, error) {
 	var out model.Habit
 	return out, c.do("PATCH", "/api/habits/"+url.PathEscape(ref), patch, &out)
+}
+
+// --- 99-Strength connection ---
+
+func (c *Client) Strength() (strength.Status, error) {
+	var st strength.Status
+	return st, c.do("GET", "/api/strength", nil, &st)
+}
+
+// StrengthConnect hands the token to tccd, which checks it with 99-Strength
+// and stores it in Windows Credential Manager. It is not kept here.
+func (c *Client) StrengthConnect(baseURL, token string) (strength.Status, error) {
+	var st strength.Status
+	return st, c.do("POST", "/api/strength/connect", map[string]string{"base_url": baseURL, "token": token}, &st)
+}
+
+// StrengthDisconnect returns how many queued writes were dropped.
+func (c *Client) StrengthDisconnect() (int, error) {
+	var out struct {
+		Dropped int `json:"dropped"`
+	}
+	return out.Dropped, c.do("POST", "/api/strength/disconnect", nil, &out)
+}
+
+func (c *Client) StrengthSync() (strength.Status, error) {
+	var st strength.Status
+	return st, c.do("POST", "/api/strength/sync", nil, &st)
 }
 
 // --- timer (snapshots stay as JSON maps; clients only display them) ---

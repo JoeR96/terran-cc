@@ -48,9 +48,12 @@ func (a *app) statusCmd() *cobra.Command {
 			}{day, tm, today, doing}
 			return a.emit(out, func() {
 				date, _ := time.Parse("2006-01-02", day.Date)
-				a.printf("%s · 🔥 %d-day streak\n", date.Format("Mon 2 Jan"), day.Streak)
+				a.printf("%s\n", habitsHeader(date.Format("Mon 2 Jan"), day))
 				for _, d := range day.Habits {
 					a.printf("  %s\n", habitLine(d))
+				}
+				if note := syncNote(day.Sync); note != "" {
+					a.printf("  %s\n", note)
 				}
 				a.printf("\nTimer: %s\n", a.timerText(tm))
 				slugs, _ := a.slugs()

@@ -21,9 +21,12 @@ func (a *app) printHabits() error {
 		return err
 	}
 	return a.emit(day, func() {
-		a.printf("%s · 🔥 %d-day streak\n", day.Date, day.Streak)
+		a.printf("%s\n", habitsHeader(day.Date, day))
 		for _, d := range day.Habits {
 			a.printf("  %s\n", habitLine(d))
+		}
+		if note := syncNote(day.Sync); note != "" {
+			a.printf("  %s\n", note)
 		}
 	})
 }
@@ -60,7 +63,8 @@ func (a *app) habitCmd() *cobra.Command {
 	log := &cobra.Command{
 		Use:   "log <habit> [+N|-N|=N|toggle]",
 		Short: "Log a habit for today (no amount = one step)",
-		Long:  "Log a habit for today. The habit can be its id, name or a unique start of its name.\nWith no amount it adds one step (or ticks a check habit).",
+		Long: "Log a habit for today. The habit can be its id, name or a unique start of its name.\nWith no amount it adds one step (or ticks a check habit).\n\n" +
+			"When habits come from 99-Strength (see `tcc strength`), counters go up in ones\n(water is bottles, not ml), a unique start of any word in the name also works,\nand a habit you type a value into takes the number: tcc habit log weigh-in 94.6",
 		// Flags are parsed by hand so "-100" isn't mistaken for a flag.
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -93,7 +97,13 @@ func (a *app) habitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return a.emit(d, func() { a.printf("%s\n", habitLine(d)) })
+			return a.emit(d, func() {
+				line := habitLine(d)
+				if d.Pending > 0 {
+					line += " (saved here, waiting to reach 99-Strength)"
+				}
+				a.printf("%s\n", line)
+			})
 		},
 	}
 
