@@ -78,6 +78,49 @@ tcc project show bdtv-bonanza
 
 A ticket moves through `inbox → backlog → up_next → in_progress → review → done`. `someday` holds parked work. Claude moves its finished tickets to Review. You check the evidence and mark them Done.
 
+## Habits from 99-Strength
+
+99-Strength, the training app, can own the habits. Terran CC then shows and logs 99-Strength's habits instead of its own. The habit widget, `tcc habit`, `tcc status` and the Stream Deck buttons all follow. Until you connect, nothing changes.
+
+### Connect
+
+1. In 99-Strength, make a personal API token. It starts with `nns_pat_`.
+2. Run `tcc strength connect --api https://api-99strength.enjoeneer.dev/api/v1`.
+3. Paste the token when asked. Nothing shows as you type.
+
+You can also pipe the token in: `Get-Clipboard | tcc strength connect --api <address>`. `--token` works too, but it leaves the token in your shell history.
+
+Terran CC checks the token with 99-Strength first. It only saves a token that works. The token lives in Windows Credential Manager, under `terran-cc:99-strength:<data folder>`. It is never written to `tcc.db`, the log or any output.
+
+```text
+tcc strength status                 the connection, last sync, changes waiting
+tcc strength sync                   send waiting changes and read today again, now
+tcc strength connect                renew the token (the address is remembered)
+tcc strength disconnect             forget the token, go back to local habits
+```
+
+### What changes
+
+- Counters go up in ones. Water is bottles, not millilitres: `tcc habit log water` adds one bottle. `+250` is refused.
+- Each counter has a minimum as well as a target. Reaching the minimum keeps the streak. The widget marks it on the bar; `tcc habit` shows `(min 4)`.
+- The weigh-in takes a number: `tcc habit log weigh-in 94.6`. It is saved as your body weight too.
+- Names are matched as before, and by any word in the name: `water`, `walks`, `creatine`, `weigh-in`.
+- The streak is 99-Strength's. One missed day is forgiven; two in a row end it.
+- You add and edit habits in 99-Strength. `tcc habit add` and `tcc habit edit` say so.
+- `--json` output has `"source": "99-strength"` (or `"local"`), plus `minimum`, `min_hit`, `kind`, `pending` and a `sync` block.
+
+### When 99-Strength is offline
+
+The widget keeps showing the last values it read, marked "Offline" with the time. You can keep logging. Each change is saved on this PC and marked ⟳. Terran CC sends the changes in order when 99-Strength is back. It tries again by itself, at most a minute apart.
+
+A change sent late is a "set to this value", not "add one". So sending it twice cannot count twice. If you also logged the same habit on your phone in the meantime, the later change wins.
+
+If 99-Strength stops accepting the token, the widget and `tcc status` say "token needs renewing". The values and waiting changes stay. Run `tcc strength connect` and paste a new token.
+
+### Go back to local habits
+
+Run `tcc strength disconnect`. It deletes the token and the saved 99-Strength values. Your local habits and their history were never touched, so they show again as you left them. If changes are still waiting, it stops and tells you. Run `tcc strength sync` first, or add `--force` to drop them.
+
 ## Stream Deck buttons
 
 Use the Stream Deck's built-in "Open" (System) action and point it at `tccw.exe` in your Go bin folder, with these arguments. `tccw` is the same as `tcc` but runs without a console window, so nothing flashes on screen when you press a button.
@@ -89,6 +132,8 @@ Use the Stream Deck's built-in "Open" (System) action and point it at `tccw.exe`
 | Water +250 ml | `habit log water` |
 | Walk done | `habit log walks` |
 | Supplements taken | `habit log creatine toggle` |
+
+With habits from 99-Strength the same buttons work. The water button then adds one bottle, and the supplements button ticks Creatine.
 
 A plugin with a live countdown key is planned.
 
@@ -102,6 +147,7 @@ internal/core     the rules (every client goes through these)
 internal/store    storage interface; sqlite/ implements it
 internal/api      HTTP JSON API and the live event stream
 internal/timer    Pomodoro state machine
+internal/strength habits from 99-Strength: API client, saved values, queue of changes
 internal/client   Go client used by tcc
 internal/cli      tcc commands
 skills/           Claude Code skills
@@ -115,3 +161,13 @@ go test ./...
 go -C desktop test ./...
 cd desktop/frontend; npm test
 ```
+
+To try habits from 99-Strength without the real thing, run the stand-in server. It prints a token to connect with. Use a spare data folder so your own install is left alone:
+
+```powershell
+go run ./internal/strength/strengthtest/fakeserver -state fake.json
+$env:TCC_HOME = "$env:TEMP\tcc-try"; $env:TCC_ADDR = "127.0.0.1:47931"
+tcc strength connect --api http://127.0.0.1:5099/api/v1
+```
+
+Stop the stand-in to see the offline state. Start it again to see the waiting changes go through. Screenshots of each state are in `docs/screens/strength-habits/`.

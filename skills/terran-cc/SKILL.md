@@ -42,8 +42,12 @@ Add `--json` to any command when you need to read the result. Errors then come b
 | Add a to-do | `tcc todo "<title>"` (add `--when week`, `--context work`) |
 | What's next on a project? | `tcc next --project <slug>` |
 | List a project's tickets | `tcc ls --project <slug>` (add `--all` for done ones) |
-| Log a habit | `tcc habit log water +250`, `tcc habit log walks`, `tcc habit log creatine toggle` |
+| See habits | `tcc habit` (run this first: it shows each habit's unit, target and where habits come from) |
+| Log a habit | `tcc habit log water` (one step), `tcc habit log walks`, `tcc habit log creatine toggle` |
+| Log an amount | Local habits: `tcc habit log water +250` (ml). When `tcc habit` says "99-Strength": counters go up in ones (water is bottles, so `+250` is refused), and the weigh-in takes a number: `tcc habit log weigh-in 94.6` |
 | Start a focus session | `tcc timer start --item <id>` |
 | Projects | `tcc project ls`, `tcc project show <slug>` |
 
 Statuses: `inbox → backlog → up_next → in_progress → review → done`, plus `someday`. Kinds: `todo`, `bug`, `task`, `feature`, `idea`.
+
+A habit line that ends with ⟳ was saved while 99-Strength was unreachable. It will be sent later by itself, so don't log it again. If `tcc status` says the 99-Strength token needs renewing, tell Joe: only he can run `tcc strength connect` with a new token.
