@@ -3,6 +3,8 @@ module terrancc
 go 1.26.0
 
 require (
+	github.com/UserExistsError/conpty v0.1.4
+	github.com/coder/websocket v1.8.14
 	github.com/spf13/cobra v1.10.2
 	modernc.org/sqlite v1.60.1
 )
