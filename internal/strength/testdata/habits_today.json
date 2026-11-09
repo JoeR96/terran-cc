@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-09",
+  "habits": [
+    {
+      "id": "0f6c2b7e-5d43-4c1a-9a57-2f1f4a7c1001",
+      "name": "Water (532ml bottle)",
+      "type": "Counter",
+      "target": 6.00,
+      "minimum": 4.00,
+      "unit": "bottles",
+      "value": 3.00,
+      "metMinimum": false,
+      "metTarget": false,
+      "order": 1,
+      "icon": "droplets"
+    },
+    {
+      "id": "0f6c2b7e-5d43-4c1a-9a57-2f1f4a7c1002",
+      "name": "Walks",
+      "type": "Counter",
+      "target": 2.00,
+      "minimum": 1.00,
+      "unit": null,
+      "value": 1.00,
+      "metMinimum": true,
+      "metTarget": false,
+      "order": 2,
+      "icon": "footprints"
+    },
+    {
+      "id": "0f6c2b7e-5d43-4c1a-9a57-2f1f4a7c1003",
+      "name": "Morning weigh-in",
+      "type": "Numeric",
+      "target": 1.00,
+      "minimum": 1.00,
+      "unit": "kg",
+      "value": 94.60,
+      "metMinimum": true,
+      "metTarget": true,
+      "order": 3,
+      "icon": "scale"
+    },
+    {
+      "id": "0f6c2b7e-5d43-4c1a-9a57-2f1f4a7c1004",
+      "name": "Mobility A done",
+      "type": "Checkbox",
+      "target": 1.00,
+      "minimum": 1.00,
+      "unit": null,
+      "value": 0,
+      "metMinimum": false,
+      "metTarget": false,
+      "order": 4,
+      "icon": "stretch-horizontal"
+    },
+    {
+      "id": "0f6c2b7e-5d43-4c1a-9a57-2f1f4a7c1005",
+      "name": "Creatine (3–5g)",
+      "type": "Checkbox",
+      "target": 1.00,
+      "minimum": 1.00,
+      "unit": null,
+      "value": 1.00,
+      "metMinimum": true,
+      "metTarget": true,
+      "order": 5,
+      "icon": "pill"
+    }
+  ],
+  "streak": {
+    "current": 12,
+    "best": 19,
+    "lastCountedDay": "2026-11-08",
+    "todayCounted": false,
+    "graceUsed": true
+  }
+}
