@@ -2,6 +2,8 @@ package strength
 
 import (
 	"errors"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -51,4 +53,7 @@ func (m *MemoryTokens) Where() string { return "memory (not saved)" }
 
 // credentialTarget names the stored credential. The home folder is part of
 // it so a throwaway TCC_HOME never touches the real install's token.
-func credentialTarget(home string) string { return "terran-cc:99-strength:" + home }
+// Windows paths ignore case, so the name does too.
+func credentialTarget(home string) string {
+	return "terran-cc:99-strength:" + strings.ToLower(filepath.Clean(home))
+}

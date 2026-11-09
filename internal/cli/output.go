@@ -103,8 +103,12 @@ func syncNote(sy *strength.Sync) string {
 	}
 	var s string
 	switch {
+	case sy.NeedsToken && sy.LastSync == nil:
+		s = "⚠ 99-Strength token needs renewing: run `tcc strength connect`"
 	case sy.NeedsToken:
 		s = "⚠ 99-Strength token needs renewing: run `tcc strength connect`. Showing values from " + syncTime(sy.LastSync)
+	case sy.Stale && sy.LastSync == nil:
+		s = "⚠ 99-Strength is offline and no habits have been read yet"
 	case sy.Stale:
 		s = "⚠ 99-Strength is offline. Showing values from " + syncTime(sy.LastSync)
 	case sy.Pending > 0:

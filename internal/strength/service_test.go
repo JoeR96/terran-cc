@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -574,6 +575,46 @@ func TestAnIncrementWhoseAnswerIsLostIsNotCountedTwice(t *testing.T) {
 	}
 }
 
+// The phone logged water while Terran CC was not looking, then the API
+// failed halfway through a burst of taps. The taps that had not got through
+// must land on top of what 99-Strength confirmed, not on the stale number
+// Terran CC started from.
+func TestQueuedTapsFollowTheLastConfirmedValue(t *testing.T) {
+	e := connected(t) // Terran CC believes water is 0
+	e.fake.Put(waterID, fixDate, 5, time.Date(2026, 11, 9, 8, 0, 0, 0, time.UTC))
+	e.log("water", core.LogOp{})
+	e.log("water", core.LogOp{})
+	e.log("water", core.LogOp{})
+	e.fake.DownAfter(1) // the first tap gets through, then the API goes away
+	e.svc.Sync(bg)
+	if got := e.fake.Value(waterID, fixDate); got != 6 {
+		t.Fatalf("after the first tap: %v", got)
+	}
+	if w := e.habit("Water"); w.Value != 8 || w.Pending != 2 {
+		t.Fatalf("the widget should show 6 confirmed plus two waiting: %+v", w)
+	}
+	e.fake.Down(0)
+	e.svc.Sync(bg)
+	if got := e.fake.Value(waterID, fixDate); got != 8 {
+		t.Fatalf("5 on the phone + 3 taps here should be 8, got %v", got)
+	}
+	if w := e.habit("Water"); w.Value != 8 || w.Pending != 0 {
+		t.Fatalf("water: %+v", w)
+	}
+}
+
+func TestCredentialNameIgnoresCaseAndSlashes(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "Roaming", "terran-cc")
+	a := credentialTarget(home)
+	b := credentialTarget(strings.ToUpper(home) + string(filepath.Separator))
+	if a != b || !strings.HasPrefix(a, "terran-cc:99-strength:") {
+		t.Fatalf("%q vs %q", a, b)
+	}
+	if credentialTarget(filepath.Join(t.TempDir(), "other")) == a {
+		t.Fatal("another home must get another credential")
+	}
+}
+
 func TestQueueAndCacheSurviveARestart(t *testing.T) {
 	e := connected(t)
 	e.log("water", core.LogOp{})
@@ -600,8 +641,17 @@ func TestQueueAndCacheSurviveARestart(t *testing.T) {
 		t.Fatalf("still down: %+v", *d.Sync)
 	}
 
+	e.svc.Sync(bg)
+	e.svc.Sync(bg)
+	if n := strings.Count(e.logs.String(), "offline, will keep trying"); n != 1 {
+		t.Fatalf("an outage should be logged once, not on each of three retries: %d\n%s", n, e.logs.String())
+	}
+
 	e.fake.Down(0)
 	e.svc.Sync(bg)
+	if !strings.Contains(e.logs.String(), "back online") {
+		t.Fatalf("recovery should be logged:\n%s", e.logs.String())
+	}
 	if e.fake.Value(waterID, fixDate) != 2 || e.fake.Value(mobID, fixDate) != 1 {
 		t.Fatalf("replay after restart: water %v, mobility %v", e.fake.Value(waterID, fixDate), e.fake.Value(mobID, fixDate))
 	}

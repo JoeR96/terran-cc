@@ -664,11 +664,14 @@ func (s *Service) round(ctx context.Context) {
 	}
 	r := &remote{base: cfg.BaseURL, token: token, http: s.http}
 	fail := func(what string, err error) {
-		s.logf("strength: %s: %s", what, redact(err.Error(), token))
 		if unauthorized(err) {
+			s.logf("strength: %s: %s", what, redact(err.Error(), token))
 			s.needToken(epoch, "99-Strength no longer accepts the token")
-		} else {
-			s.wentOffline(epoch, err)
+			return
+		}
+		// Say so once per outage, not on every retry.
+		if s.wentOffline(epoch, err) {
+			s.logf("strength: offline, will keep trying: %s: %s", what, redact(err.Error(), token))
 		}
 	}
 
@@ -781,11 +784,14 @@ func (s *Service) dropped(epoch int, o op, err error) {
 // an increment becomes "set to the value it was meant to reach": 99-Strength
 // has no idempotency key for increments, so an increment whose answer was
 // lost could count twice if sent again, while a set cannot.
-func (s *Service) wentOffline(epoch int, err error) {
+//
+// It reports whether this is the start of an outage rather than more of one.
+func (s *Service) wentOffline(epoch int, err error) (first bool) {
 	s.change(func() {
 		if s.epoch != epoch {
 			return
 		}
+		first = !s.offline
 		s.offline = true
 		s.failures++
 		s.lastErr = "99-Strength is not reachable"
@@ -799,6 +805,7 @@ func (s *Service) wentOffline(epoch int, err error) {
 		}
 		s.releaseLocked()
 	})
+	return first
 }
 
 // needToken marks the connection as needing a new token. The cache and the
@@ -817,10 +824,41 @@ func (s *Service) needToken(epoch int, why string) {
 	})
 }
 
+// queueAsSetsLocked turns every queued increment into "set to the value it
+// was meant to reach". That value is worked out now, from the last value
+// 99-Strength confirmed and the writes queued before it, so it is exactly
+// what the widget is showing.
 func (s *Service) queueAsSetsLocked() {
+	running := map[string]float64{} // habit and date -> value after the writes so far
 	for i := range s.queue {
-		s.queue[i].Kind, s.queue[i].Delta = opSet, 0
+		o := &s.queue[i]
+		key := o.HabitID + "|" + o.Date
+		if o.Kind == opInc {
+			base, ok := running[key]
+			if !ok {
+				base, ok = s.confirmedLocked(o.HabitID, o.Date)
+			}
+			if ok {
+				o.Value = max(0, base+float64(o.Delta))
+			}
+			o.Kind, o.Delta = opSet, 0
+		}
+		running[key] = o.Value
 	}
+}
+
+// confirmedLocked is the last value 99-Strength reported for a habit on a
+// date, when the cache holds that date.
+func (s *Service) confirmedLocked(habitID, date string) (float64, bool) {
+	if s.cache == nil || s.cache.Today.Date != date {
+		return 0, false
+	}
+	for _, h := range s.cache.Today.Habits {
+		if h.ID == habitID {
+			return h.Value, true
+		}
+	}
+	return 0, false
 }
 
 // releaseLocked lets every waiting Log answer now with its pending value.

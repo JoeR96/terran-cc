@@ -53,6 +53,7 @@ type Fake struct {
 	weights map[string]float64            // date -> kg
 	reqs    []Request
 	down    int // answer this status instead of working (0 = work)
+	downIn  int // go down (503) after this many more writes; 0 = never
 	lose    int // apply the next N writes, then cut the connection before answering
 	slow    time.Duration
 	streak  int // counted days before today
@@ -85,7 +86,10 @@ func (f *Fake) SetHabits(hs []Habit) { f.mu.Lock(); f.habits = hs; f.mu.Unlock()
 func (f *Fake) SetToken(t string) { f.mu.Lock(); f.token = t; f.mu.Unlock() }
 
 // Down makes every call answer status (503, say) until Down(0).
-func (f *Fake) Down(status int) { f.mu.Lock(); f.down = status; f.mu.Unlock() }
+func (f *Fake) Down(status int) { f.mu.Lock(); f.down, f.downIn = status, 0; f.mu.Unlock() }
+
+// DownAfter lets n more writes through and then answers 503 until Down(0).
+func (f *Fake) DownAfter(n int) { f.mu.Lock(); f.downIn = n; f.mu.Unlock() }
 
 // LoseNext applies the next n writes but cuts the connection instead of
 // answering: the client cannot know whether they happened.
@@ -279,6 +283,11 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	write := r.Method != http.MethodGet
+	if write && f.downIn > 0 {
+		if f.downIn--; f.downIn == 0 {
+			defer func() { f.down = 503 }() // this write still goes through
+		}
+	}
 	loseIt := func() bool {
 		if write && f.lose > 0 {
 			f.lose--
