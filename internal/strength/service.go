@@ -171,6 +171,7 @@ type Service struct {
 	mu          sync.Mutex
 	cfg         config
 	cache       *cached
+	train       *trainingCache // the plan, read on demand (training.go)
 	queue       []op
 	ids         idMap
 	offline     bool // the last round got no usable answer
@@ -332,6 +333,8 @@ func (s *Service) Connect(ctx context.Context, baseURL, token string) (Status, e
 		s.save(keyToday, cached{})
 		s.save(keyQueue, s.queue)
 		s.save(keyIDs, s.ids)
+		s.train = nil
+		s.save(keyTraining, trainingCache{})
 	}
 	s.cfg = config{BaseURL: base, Connected: true, UserID: who.UserID, Email: who.Email, TokenName: who.TokenName}
 	s.save(keyConfig, s.cfg)
@@ -363,6 +366,8 @@ func (s *Service) Disconnect() (int, error) {
 	s.save(keyToday, cached{})
 	s.save(keyQueue, s.queue)
 	s.save(keyIDs, s.ids)
+	s.train = nil
+	s.save(keyTraining, trainingCache{})
 	for id, ch := range s.waiters {
 		close(ch)
 		delete(s.waiters, id)

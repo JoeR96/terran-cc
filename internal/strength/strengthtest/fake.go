@@ -56,7 +56,8 @@ type Fake struct {
 	downIn  int // go down (503) after this many more writes; 0 = never
 	lose    int // apply the next N writes, then cut the connection before answering
 	slow    time.Duration
-	streak  int // counted days before today
+	streak  int    // counted days before today
+	plan    []byte // UpcomingDayDto[]; nil is no active plan (plan.go)
 	Email   string
 	Now     func() time.Time
 }
@@ -296,6 +297,9 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 		return false
 	}
 
+	if f.servePlan(w, r, path) {
+		return false
+	}
 	switch {
 	case r.Method == "GET" && path == "/users/me/api-tokens/whoami":
 		ok(w, map[string]any{"userId": "7b0e7c52-93a1-4e0c-8a3e-5a8d6f0b2c11", "email": f.Email, "tokenName": "Terran CC"})

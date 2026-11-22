@@ -1,0 +1,85 @@
+[
+  {
+    "date": "2026-11-22",
+    "phase": 0,
+    "sessions": [
+      { "kind": 0, "label": "Rest", "status": 4, "liftDay": null, "cardioProtocolId": null, "mobilityRoutineId": null, "completionId": null, "hevyRoutineId": null, "gymSessionId": null, "hevyPostStatus": null, "warmUpRoutineId": null, "finisherCardioProtocolId": null, "finisherCardioTrackId": null }
+    ],
+    "lifts": []
+  },
+  {
+    "date": "2026-11-23",
+    "phase": 0,
+    "sessions": [
+      { "kind": 1, "label": "Upper A", "status": 0, "liftDay": 1, "cardioProtocolId": null, "mobilityRoutineId": null, "completionId": null, "hevyRoutineId": "f3b0c1d2-hevy-routine", "gymSessionId": null, "hevyPostStatus": null, "warmUpRoutineId": null, "finisherCardioProtocolId": "c0ffee00-1111-4222-8333-444455556666", "finisherCardioTrackId": null }
+    ],
+    "lifts": [
+      {
+        "liftDay": 1,
+        "label": "Upper A",
+        "weekNumber": 3,
+        "isDeloadWeek": false,
+        "exercises": [
+          {
+            "name": "Bench Press (Barbell)",
+            "category": "MainLift",
+            "sets": [
+              { "weightKg": 75.0, "reps": 5, "isAmrap": false },
+              { "weightKg": 75.0, "reps": 5, "isAmrap": false },
+              { "weightKg": 75.0, "reps": 5, "isAmrap": false },
+              { "weightKg": 75.0, "reps": 5, "isAmrap": false },
+              { "weightKg": 75.0, "reps": 10, "isAmrap": true }
+            ]
+          },
+          {
+            "name": "Lat Pulldown (Cable)",
+            "category": "Accessory",
+            "sets": [
+              { "weightKg": 52.5, "reps": 12, "isAmrap": false },
+              { "weightKg": 52.5, "reps": 12, "isAmrap": false },
+              { "weightKg": 52.5, "reps": 12, "isAmrap": false }
+            ]
+          }
+        ],
+        "finisher": { "name": "Stair finisher", "prescription": "10 min · steady, level 8" }
+      }
+    ]
+  },
+  {
+    "date": "2026-11-24",
+    "phase": 0,
+    "sessions": [
+      { "kind": 2, "label": "Zone 2 walk", "status": 0, "liftDay": null, "cardioProtocolId": "a1b2c3d4-0000-4000-8000-000000000002", "mobilityRoutineId": null, "completionId": null, "hevyRoutineId": null, "gymSessionId": null, "hevyPostStatus": null, "warmUpRoutineId": null, "finisherCardioProtocolId": null, "finisherCardioTrackId": null },
+      { "kind": 3, "label": "Mobility A", "status": 0, "liftDay": null, "cardioProtocolId": null, "mobilityRoutineId": "9e8d7c6b-5a49-4382-a1b0-c9d8e7f6a501", "completionId": null, "hevyRoutineId": null, "gymSessionId": null, "hevyPostStatus": null, "warmUpRoutineId": null, "finisherCardioProtocolId": null, "finisherCardioTrackId": null }
+    ],
+    "lifts": []
+  },
+  {
+    "date": "2026-11-25",
+    "phase": null,
+    "sessions": [
+      { "kind": 1, "label": "Lower A", "status": 0, "liftDay": 2, "cardioProtocolId": null, "mobilityRoutineId": null, "completionId": null, "hevyRoutineId": null, "gymSessionId": null, "hevyPostStatus": null, "warmUpRoutineId": null, "finisherCardioProtocolId": null, "finisherCardioTrackId": null }
+    ],
+    "lifts": [
+      {
+        "liftDay": 2,
+        "label": "Lower A",
+        "weekNumber": 7,
+        "isDeloadWeek": true,
+        "exercises": [
+          {
+            "name": "Squat (Barbell)",
+            "category": "MainLift",
+            "sets": [
+              { "weightKg": 60.0, "reps": 5, "isAmrap": false },
+              { "weightKg": 60.0, "reps": 5, "isAmrap": false },
+              { "weightKg": 60.0, "reps": 5, "isAmrap": false },
+              { "weightKg": 60.0, "reps": 5, "isAmrap": false }
+            ]
+          }
+        ],
+        "finisher": null
+      }
+    ]
+  }
+]

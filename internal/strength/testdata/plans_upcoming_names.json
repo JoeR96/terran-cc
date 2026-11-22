@@ -1,0 +1,10 @@
+[
+  {
+    "date": "2026-11-23",
+    "phase": "Cut",
+    "sessions": [
+      { "kind": "Lift", "label": "Upper A", "status": "Done", "liftDay": "Day1", "cardioProtocolId": null, "mobilityRoutineId": null, "completionId": "5a1c9d2e-7f30-4b8e-9c61-0d2e4f6a8b01", "hevyRoutineId": null }
+    ],
+    "lifts": []
+  }
+]

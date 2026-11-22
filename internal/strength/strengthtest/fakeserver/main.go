@@ -30,6 +30,7 @@ func main() {
 
 	fake := strengthtest.New(*token)
 	fake.Slow(*slow)
+	fake.SetPlan(strengthtest.SeedPlan(time.Now()))
 	if *statePath != "" {
 		if b, err := os.ReadFile(*statePath); err == nil {
 			if err := fake.Load(b); err != nil {
