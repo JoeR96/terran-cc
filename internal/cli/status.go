@@ -9,6 +9,7 @@ import (
 
 	"terrancc/internal/client"
 	"terrancc/internal/model"
+	"terrancc/internal/strength"
 )
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
@@ -16,7 +17,7 @@ func itoa(n int64) string { return strconv.FormatInt(n, 10) }
 func (a *app) statusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Today at a glance: habits, timer, today's to-dos, work in progress",
+		Short: "Today at a glance: habits, training, timer, today's to-dos, work in progress",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := a.client()
@@ -40,12 +41,14 @@ func (a *app) statusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			training, trainingText := statusTraining(c)
 			out := struct {
-				Habits     client.HabitsDay `json:"habits"`
-				Timer      map[string]any   `json:"timer"`
-				Today      []model.Item     `json:"today"`
-				InProgress []model.Item     `json:"in_progress"`
-			}{day, tm, today, doing}
+				Habits     client.HabitsDay   `json:"habits"`
+				Training   *strength.Training `json:"training,omitempty"`
+				Timer      map[string]any     `json:"timer"`
+				Today      []model.Item       `json:"today"`
+				InProgress []model.Item       `json:"in_progress"`
+			}{day, training, tm, today, doing}
 			return a.emit(out, func() {
 				date, _ := time.Parse("2006-01-02", day.Date)
 				a.printf("%s\n", habitsHeader(date.Format("Mon 2 Jan"), day))
@@ -54,6 +57,12 @@ func (a *app) statusCmd() *cobra.Command {
 				}
 				if note := syncNote(day.Sync); note != "" {
 					a.printf("  %s\n", note)
+				}
+				if len(trainingText) > 0 {
+					a.printf("\n")
+					for _, l := range trainingText {
+						a.printf("%s\n", l)
+					}
 				}
 				a.printf("\nTimer: %s\n", a.timerText(tm))
 				slugs, _ := a.slugs()

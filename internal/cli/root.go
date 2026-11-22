@@ -62,7 +62,7 @@ func NewRoot(getClient func() (*client.Client, error), out, errOut io.Writer) *c
 	root.SetErr(errOut)
 	root.AddCommand(a.statusCmd())
 	a.addItemCmds(root)
-	root.AddCommand(a.projectCmd(), a.habitCmd(), a.timerCmd(), a.strengthCmd())
+	root.AddCommand(a.projectCmd(), a.habitCmd(), a.timerCmd(), a.strengthCmd(), a.workoutCmd())
 	root.CompletionOptions.DisableDefaultCmd = true
 	return root
 }
