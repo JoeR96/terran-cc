@@ -36,6 +36,17 @@ type RemoteHabit struct {
 	MetTarget  bool    `json:"metTarget"`
 	Order      int     `json:"order"`
 	Icon       *string `json:"icon"`
+	// Step is how much one counter tap adds (Protein: 25 g). Older
+	// 99-Strength builds leave it out, which means 1.
+	Step *float64 `json:"step"`
+}
+
+// StepOf is the habit's counter step: 1 when missing or not positive.
+func (h RemoteHabit) StepOf() float64 {
+	if h.Step == nil || !(*h.Step > 0) {
+		return 1
+	}
+	return *h.Step
 }
 
 // RemoteStreak is HabitStreakDto.

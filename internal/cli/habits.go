@@ -64,7 +64,7 @@ func (a *app) habitCmd() *cobra.Command {
 		Use:   "log <habit> [+N|-N|=N|toggle]",
 		Short: "Log a habit for today (no amount = one step)",
 		Long: "Log a habit for today. The habit can be its id, name or a unique start of its name.\nWith no amount it adds one step (or ticks a check habit).\n\n" +
-			"When habits come from 99-Strength (see `tcc strength`), counters go up in ones\n(water is bottles, not ml), a unique start of any word in the name also works,\nand a habit you type a value into takes the number: tcc habit log weigh-in 94.6",
+			"When habits come from 99-Strength (see `tcc strength`), counters go up in their step\n(water is bottles, not ml; protein might be 25 g a tap, so +50 is two taps), a unique start of any word in the name also works,\nand a habit you type a value into takes the number: tcc habit log weigh-in 94.6",
 		// Flags are parsed by hand so "-100" isn't mistaken for a flag.
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
