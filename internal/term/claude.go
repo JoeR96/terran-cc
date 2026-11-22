@@ -26,7 +26,8 @@ Use the ` + "`tcc`" + ` CLI for everything (` + "`tcc --help`" + `, add ` + "`--
 - Project tickets: ` + "`tcc add \"title\" --project <slug> [--inbox]`" + `; ` + "`tcc project ls`" + `.
   A new idea for a project goes to its inbox.
 - Edit, finish, note: ` + "`tcc edit <id> ...`" + `, ` + "`tcc done <id>`" + `, ` + "`tcc note <id> \"text\"`" + `.
-- Habits: ` + "`tcc habit`" + `, ` + "`tcc habit log water 500`" + `.
+- Habits: ` + "`tcc habit`" + ` (shows each habit's unit and target), ` + "`tcc habit log water`" + `
+  adds one step. When the list says 99-Strength, counters go up in ones.
 - Timer: ` + "`tcc timer start --min 25 [--task \"...\"]`" + `, ` + "`tcc timer stop`" + `.
 
 Look ids up with ` + "`tcc ls`" + ` or ` + "`tcc show <id>`" + ` before editing; never guess.

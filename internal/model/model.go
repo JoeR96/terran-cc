@@ -68,6 +68,15 @@ const (
 	HabitCount  HabitType = "count"
 	HabitAmount HabitType = "amount"
 	HabitCheck  HabitType = "check"
+	// HabitNumeric is a typed-in value (the morning weigh-in). Only habits
+	// served from 99-Strength have it; local habits cannot be numeric.
+	HabitNumeric HabitType = "numeric"
+)
+
+// Where a day's habits come from.
+const (
+	SourceLocal    = "local"
+	SourceStrength = "99-strength"
 )
 
 func (h HabitType) Valid() bool { return h == HabitCount || h == HabitAmount || h == HabitCheck }
@@ -141,4 +150,18 @@ type HabitDay struct {
 	Date  string  `json:"date"`
 	Value float64 `json:"value"`
 	Hit   bool    `json:"hit"`
+	// Source is "local" or "99-strength".
+	Source string `json:"source,omitempty"`
+
+	// The rest is only set for habits served from 99-Strength.
+
+	// Kind is 99-Strength's own type: counter, numeric or checkbox.
+	Kind string `json:"kind,omitempty"`
+	// Minimum is the bad-day version that still keeps the streak alive.
+	Minimum float64 `json:"minimum,omitempty"`
+	MinHit  bool    `json:"min_hit,omitempty"`
+	// RemoteID is the habit's id in 99-Strength.
+	RemoteID string `json:"remote_id,omitempty"`
+	// Pending counts writes to this habit that have not reached 99-Strength yet.
+	Pending int `json:"pending,omitempty"`
 }

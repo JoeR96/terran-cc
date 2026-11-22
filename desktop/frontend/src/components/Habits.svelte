@@ -2,6 +2,8 @@
   import { db, act } from '../lib/store.svelte.js'
   import { habitValue } from '../lib/format.js'
   import { select } from '../lib/actions.js'
+  import { REMOTE } from '../lib/strength.js'
+  import StrengthHabits from './StrengthHabits.svelte'
 
   // wide: habits sit side by side as cards instead of one per line.
   let { bars = true, title = true, wide = false } = $props()
@@ -22,6 +24,10 @@
   const pct = h => Math.min(100, (h.value / (h.target || 1)) * 100)
 </script>
 
+{#if db.habitSource === REMOTE}
+  <!-- Habits come from 99-Strength: counters with a minimum, the weigh-in. -->
+  <StrengthHabits {bars} {title} {wide} />
+{:else}
 {#if title}
   <h6>Habits <span class="streak" title="Days in a row with every habit hit">🔥{db.streak}</span></h6>
 {/if}
@@ -61,6 +67,7 @@
   </div>
 {/each}
 </div>
+{/if}
 
 <style>
   .streak { color: var(--accent); letter-spacing: 0; text-transform: none; font-size: 11px; }

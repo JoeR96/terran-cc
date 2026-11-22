@@ -1,5 +1,6 @@
 import { api, listen } from './api.js'
 import { isoDate } from './format.js'
+import { REMOTE, optimistic } from './strength.js'
 
 // db is the live copy of tccd's state that every view reads from.
 export const db = $state({
@@ -9,6 +10,9 @@ export const db = $state({
   date: '',
   streak: 0,
   habits: [],
+  habitSource: 'local', // 'local', or '99-strength' once tcc strength connect has run
+  habitSync: null, // 99-Strength only: how fresh the habits are
+  streakInfo: null, // 99-Strength only: best streak, grace day
   items: [],
   projects: [],
   timer: null,
@@ -25,6 +29,9 @@ const loaders = {
     db.date = h.date
     db.streak = h.streak
     db.habits = h.habits
+    db.habitSource = h.source || 'local'
+    db.habitSync = h.sync || null
+    db.streakInfo = h.streak_info || null
   },
   async items() {
     db.items = await api('GET', '/api/items')
@@ -123,15 +130,38 @@ export function saveBoards(boards) {
   return api('PUT', '/api/ui/boards', $state.snapshot(boards)).catch(fail)
 }
 
+// A 99-Strength habit shows the tap at once. tccd answers with the value
+// 99-Strength confirmed, or with the expected value marked pending when it
+// could not be reached; either way that answer replaces the guess.
+function logRemoteHabit(h, op) {
+  const at = () => db.habits.findIndex(x => x.id === h.id)
+  if (at() >= 0) db.habits[at()] = optimistic(h, op)
+  return api('POST', `/api/habits/${h.id}/log`, op)
+    .then(d => {
+      if (at() >= 0) db.habits[at()] = d
+    })
+    .catch(e => {
+      fail(e)
+      reload('habits')
+    })
+}
+
 // --- actions: each calls tccd; the event stream refreshes everyone else ---
 
 export const act = {
-  logHabit: (h, op) =>
-    api('POST', `/api/habits/${h.id}/log`, op)
+  logHabit: (h, op) => {
+    if (h.source === REMOTE) return logRemoteHabit(h, op)
+    return api('POST', `/api/habits/${h.id}/log`, op)
       .then(d => {
         const i = db.habits.findIndex(x => x.id === h.id)
         if (i >= 0) db.habits[i] = d
       })
+      .catch(fail)
+  },
+  // Replays anything queued for 99-Strength and reads today's habits again.
+  syncStrength: () =>
+    api('POST', '/api/strength/sync')
+      .then(() => loaders.habits())
       .catch(fail),
   addItem: n => api('POST', '/api/items', n).catch(fail),
   edit: (id, patch) => api('PATCH', `/api/items/${id}`, patch).catch(fail),

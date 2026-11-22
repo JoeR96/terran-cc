@@ -25,6 +25,7 @@ import (
 	"terrancc/internal/events"
 	"terrancc/internal/osrs"
 	"terrancc/internal/store/sqlite"
+	"terrancc/internal/strength"
 	"terrancc/internal/term"
 	"terrancc/internal/timer"
 )
@@ -116,8 +117,20 @@ func run() (err error) {
 	}
 	claude := term.New(term.ClaudeStarter(assistDir))
 	defer claude.Close()
-	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithTerminal(claude), api.WithOSRS(tracker, ""), api.WithVault(vaultDir())), ReadHeaderTimeout: 10 * time.Second}
+	// Habits come from 99-Strength once "tcc strength connect" has run. The
+	// token is kept in Windows Credential Manager, never in tcc.db.
+	remote, err := strength.New(strength.Options{
+		Store:   db,
+		Tokens:  strength.SystemTokens(home),
+		Notify:  func() { bus.Publish(events.Event{Type: "habit.changed"}) },
+		LogWait: 1200 * time.Millisecond,
+	})
+	if err != nil {
+		return err
+	}
+	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithTerminal(claude), api.WithOSRS(tracker, ""), api.WithVault(vaultDir()), api.WithStrength(remote)), ReadHeaderTimeout: 10 * time.Second}
 	go tracker.Run(ctx)
+	go remote.Run(ctx)
 
 	go api.RunTicker(ctx, tm, bus)
 	go func() {

@@ -1,0 +1,5 @@
+{
+  "status": 401,
+  "title": "Unauthenticated",
+  "detail": "The API token is unknown or revoked."
+}
