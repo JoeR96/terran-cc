@@ -17,10 +17,49 @@ export function dayName(date) {
   return `${DAYS[t.getUTCDay()]} ${d} ${MONTHS[m - 1]}`
 }
 
-export const kg = v => (v ? `${num(v)} kg` : 'bodyweight')
+export const kg = v => `${num(v)} kg`
 
-// setText is "75 kg × 5", or "75 kg × 10+ (AMRAP)".
-export const setText = s => `${kg(s.weight_kg)} × ${s.reps}${s.amrap ? '+ (AMRAP)' : ''}`
+// needsWeight reports a main or auxiliary lift, always loaded, whose
+// weight is not set yet (99-Strength sends 0).
+export const needsWeight = e =>
+  (e?.category === 'MainLift' || e?.category === 'Auxiliary') && !!e.sets?.length && e.sets.every(s => !s.weight_kg)
+
+// weightText is how a set's weight reads. 99-Strength sends 0 both for
+// bodyweight work and for a weight not set yet, so 0 is "bodyweight" only
+// when the name says so, "—" for a lift that needs a weight, else nothing.
+export function weightText(e, v) {
+  if (v > 0) return kg(v)
+  if (/bodyweight/i.test(e?.name || '')) return 'bodyweight'
+  if (needsWeight(e)) return '—'
+  return ''
+}
+
+// setText is "75 kg × 5", "75 kg × 10+ (AMRAP)", or "× 10" with no weight to show.
+export function setText(s, e) {
+  const w = weightText(e, s.weight_kg)
+  return `${w ? w + ' ' : ''}× ${s.reps}${s.amrap ? '+ (AMRAP)' : ''}`
+}
+
+// addDays moves "2026-11-24" by n days.
+export function addDays(date, n) {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
+
+// dayView is what the Training panel shows for date: that day from the
+// plan (or from more, days read for further out), whether it is a rest
+// day, and on a restful today the next planned day.
+export function dayView(training, date, more = []) {
+  if (!training || training.no_plan) return { day: null, rest: false, next: null, future: false }
+  const all = [...(training.days || []), ...more]
+  const day = all.find(d => d.date === date) || null
+  const rest = !day || day.rest || !work(day).length
+  const next = date === training.today && !open(day) ? all.find(d => d.date > date && open(d)) || null : null
+  return { day, rest, next, future: date > training.today }
+}
+
+// hasDay reports whether date is in the days already read.
+export const hasDay = (training, date, more = []) => [...(training?.days || []), ...more].some(d => d.date === date)
 
 // shortExercise drops the equipment: "Bench Press (Barbell)" is "Bench Press".
 export const shortExercise = name => name.replace(/\s*\([^)]*\)\s*$/, '') || name
@@ -31,7 +70,8 @@ export function exerciseSummary(e) {
   if (!e.sets?.length) return ''
   const last = e.sets[e.sets.length - 1]
   const top = Math.max(...e.sets.map(s => s.weight_kg))
-  return `${e.sets.length}×${e.sets[0].reps}${last.amrap ? '+' : ''} @ ${kg(top)}`
+  const w = weightText(e, top)
+  return `${e.sets.length}×${e.sets[0].reps}${last.amrap ? '+' : ''}${w ? ' @ ' + w : ''}`
 }
 
 // liftSummary is the headline of a lift: its first main lift, or first exercise.
@@ -68,7 +108,7 @@ export function pick(training) {
 export function liftTitle(s) {
   if (!s.lift) return s.label
   const head = `${s.label} · week ${s.lift.week}${s.lift.deload ? ' (deload)' : ''}`
-  const lines = s.lift.exercises.map(e => `${e.name}: ${e.sets.map(setText).join(', ')}`)
+  const lines = s.lift.exercises.map(e => `${e.name}: ${e.sets.map(s => setText(s, e)).join(', ')}`)
   if (s.lift.finisher) lines.push(`Finisher: ${s.lift.finisher.name} — ${s.lift.finisher.prescription}`)
   return [head, ...lines].join('\n')
 }

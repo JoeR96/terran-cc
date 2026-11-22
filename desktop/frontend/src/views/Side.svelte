@@ -14,7 +14,8 @@
   import OsrsView from '../components/OsrsView.svelte'
   import Split from '../components/Split.svelte'
   import Dock from '../components/Dock.svelte'
-  import { normalize, defaultLayout } from '../lib/dock.js'
+  import Training from '../components/Training.svelte'
+  import { normalize, defaultLayout, closedPanels, reopen, LABELS } from '../lib/dock.js'
   import { route } from '../lib/route.svelte.js'
 
   // Wider than this, the widget shows habits across the top and splits the
@@ -140,6 +141,8 @@
     <div class="col term"><Claude /></div>
   {:else if key === 'scratch'}
     <div class="col"><Notes /></div>
+  {:else if key === 'training'}
+    <div class="col"><Training /></div>
   {/if}
 {/snippet}
 
@@ -231,6 +234,9 @@
       {#if conn().shell}
         <button class="ghost" onclick={setTop}>{onTop ? '✓ ' : ''}Always on top <span class="faint">Ctrl+T</span></button>
       {/if}
+      {#each closedPanels(layout) as p}
+        <button class="ghost" onclick={() => { setLayout(reopen(layout, p)); menu = false }}>Show the {LABELS[p]} panel</button>
+      {/each}
       <button class="ghost" onclick={resetLayout}>Reset the panel layout</button>
     </div>
   {/if}
@@ -261,6 +267,7 @@
     <div class="body">
       <div class="sec"><Timer compact /></div>
       <div class="sec"><Habits /></div>
+      {#if db.training}<div class="sec"><Training /></div>{/if}
       <div class="sec"><TodoTree onopen={openItem} /></div>
       <div class="sec narrowpane">{@render middle()}</div>
       <div class="sec narrowpane" class:shut={!boxOpen}>{@render box()}</div>

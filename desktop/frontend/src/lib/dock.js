@@ -3,14 +3,15 @@
 // into a group's tab bar, below a group (stacking it), or into a new column.
 // Sizes are percentages: columns across the row, groups down a column.
 
-export const PANELS = ['todos', 'projects', 'osrs', 'claude', 'scratch']
+export const PANELS = ['todos', 'projects', 'osrs', 'claude', 'scratch', 'training']
 
-export const LABELS = { todos: 'To-dos', projects: 'Projects', osrs: 'OSRS', claude: 'Claude', scratch: 'Scratch' }
+export const LABELS = { todos: 'To-dos', projects: 'Projects', osrs: 'OSRS', claude: 'Claude', scratch: 'Scratch', training: 'Training' }
 
 export function defaultLayout() {
   return {
+    closed: [],
     cols: [
-      { size: 27, groups: [{ id: 'g1', panels: ['todos'], active: 'todos', size: 100 }] },
+      { size: 27, groups: [{ id: 'g1', panels: ['todos', 'training'], active: 'todos', size: 100 }] },
       { size: 40, groups: [{ id: 'g2', panels: ['projects', 'osrs'], active: 'projects', size: 100 }] },
       { size: 33, groups: [{ id: 'g3', panels: ['claude', 'scratch'], active: 'claude', size: 100 }] },
     ],
@@ -91,6 +92,33 @@ export function move(layout, panel, to) {
   return tidy(l)
 }
 
+// close takes a panel out of the layout; it stays closed until reopened.
+export function close(layout, panel) {
+  const l = clone(layout)
+  const at = where(l, panel)
+  // The last panel open stays: an empty dock has nowhere to reopen into.
+  if (!at || l.cols.flatMap(c => c.groups).reduce((n, g) => n + g.panels.length, 0) <= 1) return layout
+  const g = l.cols[at.col].groups[at.group]
+  g.panels.splice(g.panels.indexOf(panel), 1)
+  l.closed = [...new Set([...(l.closed || []), panel])]
+  return tidy(l)
+
+}
+
+// reopen puts a closed panel back as the active tab of the first group.
+export function reopen(layout, panel) {
+  const l = clone(layout)
+  if (!PANELS.includes(panel) || where(l, panel)) return layout
+  l.closed = (l.closed || []).filter(p => p !== panel)
+  const g = l.cols[0].groups[0]
+  g.panels.push(panel)
+  g.active = panel
+  return l
+}
+
+// closed lists the panels not in the layout.
+export const closedPanels = l => PANELS.filter(p => !where(l, p))
+
 export function activate(layout, groupId, panel) {
   const l = clone(layout)
   const t = findGroup(l, groupId)
@@ -111,7 +139,8 @@ export function resize(layout, colIndex, sizes) {
 // ones join the last group, and ids and sizes are made sane.
 export function normalize(saved) {
   if (!saved || !Array.isArray(saved.cols) || !saved.cols.length) return defaultLayout()
-  const l = { cols: [] }
+  const closed = (Array.isArray(saved.closed) ? saved.closed : []).filter(p => PANELS.includes(p))
+  const l = { closed: [], cols: [] }
   const seen = new Set()
   for (const c of saved.cols) {
     if (!c || !Array.isArray(c.groups)) continue
@@ -122,7 +151,8 @@ export function normalize(saved) {
     }
     l.cols.push(col)
   }
-  const missing = PANELS.filter(p => !seen.has(p))
+  const missing = PANELS.filter(p => !seen.has(p) && !closed.includes(p))
+  l.closed = closed.filter(p => !seen.has(p))
   tidy(l)
   if (!l.cols.length) return defaultLayout()
   const last = l.cols[l.cols.length - 1].groups.at(-1)

@@ -5,7 +5,7 @@
   // One tab group: draggable tabs on top, the active panel below. Drop a
   // tab on the tab bar to move it here, or on the lower part of the panel
   // to stack it underneath.
-  let { group, panel, onmove, onactivate } = $props()
+  let { group, panel, onmove, onactivate, onclose = null } = $props()
 
   let barOver = $state(-1) // insert index while a tab hovers over the bar
   let belowOver = $state(false)
@@ -56,7 +56,13 @@
           e.dataTransfer.effectAllowed = 'move'
           e.dataTransfer.setData('text/plain', p)
         }}
-        ondragend={() => ((dnd.panel = null), (barOver = -1), (belowOver = false))}>{LABELS[p]}</button>
+        ondragend={() => ((dnd.panel = null), (barOver = -1), (belowOver = false))}>{LABELS[p]}{#if onclose && group.active === p}<span
+            class="x"
+            role="button"
+            tabindex="-1"
+            title="Close this panel (reopen it from the ⋯ menu)"
+            onclick={e => (e.stopPropagation(), onclose(p))}
+            onkeydown={() => {}}>✕</span>{/if}</button>
     {/each}
     {#if barOver === group.panels.length}<span class="caret"></span>{/if}
     <span class="fill"></span>
@@ -86,6 +92,8 @@
   .tab:hover { color: var(--text); background: var(--btn); }
   .tab.on { color: var(--text); border-bottom-color: var(--accent); background: var(--bg); }
   .tab.moving { opacity: .4; }
+  .x { margin-left: 6px; color: var(--faint); font-size: 9px; cursor: pointer; }
+  .x:hover { color: var(--red); }
   .caret { width: 2px; background: var(--accent); margin: 3px 0; }
   .fill { flex: 1; }
   .body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }

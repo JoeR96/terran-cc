@@ -2,7 +2,7 @@
   import Split from './Split.svelte'
   import DockColumn from './DockColumn.svelte'
   import { dnd } from '../lib/dockdrag.svelte.js'
-  import { move, activate, resize } from '../lib/dock.js'
+  import { move, activate, resize, close } from '../lib/dock.js'
 
   // Columns of tab groups. Every change goes back through onchange, which
   // saves the layout.
@@ -16,7 +16,7 @@
 {#snippet column(ci)}
   {@const col = layout.cols[ci]}
   {#if col}
-    <DockColumn {col} {panel} onmove={doMove} onactivate={doActivate} onresize={s => onchange(resize(layout, ci, s))} />
+    <DockColumn {col} {panel} onmove={doMove} onactivate={doActivate} onresize={s => onchange(resize(layout, ci, s))} onclose={p => onchange(close(layout, p))} />
   {/if}
 {/snippet}
 
