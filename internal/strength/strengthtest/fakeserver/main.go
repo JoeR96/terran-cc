@@ -26,10 +26,13 @@ func main() {
 	token := flag.String("token", strengthtest.Token, "the personal API token to accept")
 	statePath := flag.String("state", "", "file to keep logged values in (optional)")
 	slow := flag.Duration("slow", 0, "delay every answer by this long")
+	noStream := flag.Bool("no-stream", false, "answer 404 on /sync/events, like a 99-Strength from before live sync")
+	noVersion := flag.Bool("no-version", false, "with -no-stream, answer 404 on /sync/version too")
 	flag.Parse()
 
 	fake := strengthtest.New(*token)
 	fake.Slow(*slow)
+	fake.NoStream(*noStream, *noVersion)
 	fake.SetPlan(strengthtest.SeedPlan(time.Now()))
 	if *statePath != "" {
 		if b, err := os.ReadFile(*statePath); err == nil {

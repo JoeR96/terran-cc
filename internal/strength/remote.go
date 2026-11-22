@@ -119,31 +119,55 @@ type remote struct {
 }
 
 func (r *remote) do(ctx context.Context, method, path string, body, out any) error {
+	_, err := r.call(ctx, method, path, "", body, out)
+	return err
+}
+
+// errNotModified is a 304: what the If-None-Match tag named is still current.
+var errNotModified = errors.New("99-Strength: not modified")
+
+// get is a conditional GET. With etag set it sends If-None-Match, and a 304
+// comes back as errNotModified with out untouched. It returns the answer's ETag.
+func (r *remote) get(ctx context.Context, path, etag string, out any) (string, error) {
+	return r.call(ctx, "GET", path, etag, nil, out)
+}
+
+func (r *remote) call(ctx context.Context, method, path, etag string, body, out any) (string, error) {
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return err
+			return "", err
 		}
 		rd = bytes.NewReader(b)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, r.base+path, rd)
 	if err != nil {
-		return err
+		return "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+r.token)
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
 	resp, err := r.http.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return err
+		return "", err
+	}
+	tag := resp.Header.Get("ETag")
+	if resp.StatusCode == http.StatusNotModified {
+		if tag == "" {
+			tag = etag
+		}
+		return tag, errNotModified
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		var problem struct {
@@ -154,15 +178,15 @@ func (r *remote) do(ctx context.Context, method, path string, body, out any) err
 		if problem.Detail == "" {
 			problem.Detail = problem.Title
 		}
-		return &HTTPError{Status: resp.StatusCode, Detail: problem.Detail}
+		return "", &HTTPError{Status: resp.StatusCode, Detail: problem.Detail}
 	}
 	if out == nil {
-		return nil
+		return tag, nil
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("99-Strength sent something that is not the expected JSON: %w", err)
+		return "", fmt.Errorf("99-Strength sent something that is not the expected JSON: %w", err)
 	}
-	return nil
+	return tag, nil
 }
 
 func (r *remote) whoAmI(ctx context.Context) (WhoAmI, error) {
@@ -172,8 +196,28 @@ func (r *remote) whoAmI(ctx context.Context) (WhoAmI, error) {
 
 // today reads the habit screen for a London date (yyyy-MM-dd).
 func (r *remote) today(ctx context.Context, date string) (RemoteToday, error) {
+	t, _, err := r.todayIf(ctx, date, "")
+	return t, err
+}
+
+// todayIf is today with If-None-Match: errNotModified when etag still holds.
+func (r *remote) todayIf(ctx context.Context, date, etag string) (RemoteToday, string, error) {
 	var t RemoteToday
-	return t, r.do(ctx, "GET", "/habits/today?date="+url.QueryEscape(date), nil, &t)
+	tag, err := r.get(ctx, "/habits/today?date="+url.QueryEscape(date), etag, &t)
+	return t, tag, err
+}
+
+// SyncVersion is GET /sync/version: one number for everything, and one per
+// area (habits, plan, workout, cardio, mobility).
+type SyncVersion struct {
+	Version int64            `json:"version"`
+	Areas   map[string]int64 `json:"areas"`
+}
+
+func (r *remote) syncVersion(ctx context.Context, etag string) (SyncVersion, string, error) {
+	var v SyncVersion
+	tag, err := r.get(ctx, "/sync/version", etag, &v)
+	return v, tag, err
 }
 
 // stamp formats a client timestamp the way the phone app does (ISO, UTC, ms).

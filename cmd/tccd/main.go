@@ -120,10 +120,11 @@ func run() (err error) {
 	// Habits come from 99-Strength once "tcc strength connect" has run. The
 	// token is kept in Windows Credential Manager, never in tcc.db.
 	remote, err := strength.New(strength.Options{
-		Store:   db,
-		Tokens:  strength.SystemTokens(home),
-		Notify:  func() { bus.Publish(events.Event{Type: "habit.changed"}) },
-		LogWait: 1200 * time.Millisecond,
+		Store:          db,
+		Tokens:         strength.SystemTokens(home),
+		Notify:         func() { bus.Publish(events.Event{Type: "habit.changed"}) },
+		NotifyTraining: func() { bus.Publish(events.Event{Type: "training.changed"}) },
+		LogWait:        1200 * time.Millisecond,
 	})
 	if err != nil {
 		return err
@@ -131,6 +132,7 @@ func run() (err error) {
 	srv := &http.Server{Handler: api.New(svc, tm, bus, token, home, api.WithShutdown(stop), api.WithTerminal(claude), api.WithOSRS(tracker, ""), api.WithVault(vaultDir()), api.WithStrength(remote)), ReadHeaderTimeout: 10 * time.Second}
 	go tracker.Run(ctx)
 	go remote.Run(ctx)
+	go remote.Live(ctx) // 99-Strength's change stream, or version polling
 
 	go api.RunTicker(ctx, tm, bus)
 	go func() {

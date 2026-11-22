@@ -57,8 +57,9 @@ type Fake struct {
 	downIn  int // go down (503) after this many more writes; 0 = never
 	lose    int // apply the next N writes, then cut the connection before answering
 	slow    time.Duration
-	streak  int    // counted days before today
-	plan    []byte // UpcomingDayDto[]; nil is no active plan (plan.go)
+	streak  int        // counted days before today
+	plan    []byte     // UpcomingDayDto[]; nil is no active plan (plan.go)
+	sync    *syncState // version, areas and open event streams (sync.go)
 	Email   string
 	Now     func() time.Time
 }
@@ -82,7 +83,12 @@ func New(token string) *Fake {
 	}
 }
 
-func (f *Fake) SetHabits(hs []Habit) { f.mu.Lock(); f.habits = hs; f.mu.Unlock() }
+func (f *Fake) SetHabits(hs []Habit) {
+	f.mu.Lock()
+	f.habits = hs
+	f.changedLocked("habits")
+	f.mu.Unlock()
+}
 
 // SetToken changes the token the fake accepts; "" revokes every token.
 func (f *Fake) SetToken(t string) { f.mu.Lock(); f.token = t; f.mu.Unlock() }
@@ -105,6 +111,7 @@ func (f *Fake) Put(habitID, date string, value float64, at time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.day(date)[habitID] = &logged{value, at.UTC()}
+	f.changedLocked("habits")
 }
 
 // Value is what the fake has stored (0 when nothing was logged).
@@ -238,6 +245,13 @@ type recorder struct {
 func (r *recorder) WriteHeader(code int) { r.status = code; r.ResponseWriter.WriteHeader(code) }
 
 func (f *Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet && r.URL.Path == "/api/v1/sync/events" {
+		status := f.serveEvents(w, r)
+		f.mu.Lock()
+		f.reqs = append(f.reqs, Request{Method: r.Method, Path: r.URL.RequestURI(), Authorization: r.Header.Get("Authorization"), Status: status})
+		f.mu.Unlock()
+		return
+	}
 	body, _ := io.ReadAll(r.Body)
 	rec := &recorder{ResponseWriter: w, status: 200}
 	f.mu.Lock()
@@ -314,7 +328,10 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 			problem(w, 400, "Bad Request", "The value '"+date+"' is not valid.")
 			return false
 		}
-		ok(w, f.today(date))
+		okTagged(w, r, f.today(date))
+
+	case r.Method == "GET" && path == "/sync/version":
+		f.serveVersion(w, r)
 
 	case r.Method == "PUT" && len(parts) == 4 && parts[0] == "habits" && parts[2] == "logs":
 		var req struct {
@@ -343,6 +360,7 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 		} else if !at.Before(l.at) { // last write wins; an older one is ignored
 			l.value, l.at = *req.Value, at
 		}
+		f.changedLocked("habits")
 		if loseIt() {
 			return true
 		}
@@ -392,6 +410,7 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 				l.value = max(0, l.value+float64(*req.Delta)*step)
 			}
 		}
+		f.changedLocked("habits")
 		if loseIt() {
 			return true
 		}
@@ -410,6 +429,7 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 			return false
 		}
 		f.weights[parts[1]] = *req.Kg
+		f.changedLocked("habits")
 		if loseIt() {
 			return true
 		}

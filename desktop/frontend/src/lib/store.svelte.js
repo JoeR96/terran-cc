@@ -1,6 +1,7 @@
 import { api, listen } from './api.js'
 import { isoDate } from './format.js'
 import { REMOTE, optimistic } from './strength.js'
+import { onReturn } from './focus.js'
 
 // db is the live copy of tccd's state that every view reads from.
 export const db = $state({
@@ -38,6 +39,11 @@ const loaders = {
     // 409 while 99-Strength is not connected: no card.
     db.training = await api('GET', '/api/training').catch(() => null)
   },
+  // trainingNow asks tccd to check with 99-Strength first (a cheap
+  // conditional read) instead of serving its two-minute cache.
+  async trainingNow() {
+    db.training = await api('GET', '/api/training?refresh=1').catch(() => null)
+  },
   async items() {
     db.items = await api('GET', '/api/items')
   },
@@ -73,12 +79,18 @@ export function fail(e) {
 }
 
 export async function loadAll() {
-  await Promise.all(Object.values(loaders).map(f => f()))
+  await Promise.all(Object.entries(loaders).filter(([k]) => k !== 'trainingNow').map(([, f]) => f()))
   db.ready = true
 }
 
 export function start() {
   setInterval(() => (db.now = Math.floor(Date.now() / 1000)), 15000)
+  // Coming back to the window: read habits and the plan again. tccd also
+  // hears 99-Strength's changes live, this covers a stream that is down.
+  onReturn(() => {
+    reload('habits')
+    reload('trainingNow')
+  })
   // A session finished on the phone changes the plan; tccd keeps it 2 min.
   setInterval(() => reload('training'), 5 * 60000)
   let day = isoDate(new Date())
@@ -98,6 +110,7 @@ export function start() {
         case 'item.changed': reload('items'); break
         case 'project.changed': reload('projects'); break
         case 'habit.changed': reload('habits'); reload('training'); break
+        case 'training.changed': reload('training'); break
         case 'timer.tick': db.timer = e.data; break
         case 'timer.phase': db.timer = e.data; db.phaseEnded++; break
         case 'osrs.changed': case 'osrs.ready': reload('osrs'); break
@@ -147,6 +160,8 @@ function logRemoteHabit(h, op) {
   return api('POST', `/api/habits/${h.id}/log`, op)
     .then(d => {
       if (at() >= 0) db.habits[at()] = d
+      // tccd read every habit again after the write: pick up the others too.
+      reload('habits')
     })
     .catch(e => {
       fail(e)

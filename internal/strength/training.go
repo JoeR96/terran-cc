@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -165,9 +166,16 @@ func (r *remote) planToday(ctx context.Context, date string) (RemotePlanToday, e
 
 // upcoming reads days (1–31) plan days from a date, rest days included.
 func (r *remote) upcoming(ctx context.Context, from string, days int) ([]RemoteUpcomingDay, error) {
+	d, _, err := r.upcomingIf(ctx, from, days, "")
+	return d, err
+}
+
+// upcomingIf is upcoming with If-None-Match: errNotModified when etag holds.
+func (r *remote) upcomingIf(ctx context.Context, from string, days int, etag string) ([]RemoteUpcomingDay, string, error) {
 	var d []RemoteUpcomingDay
 	q := "?from=" + url.QueryEscape(from) + "&days=" + strconv.Itoa(days)
-	return d, r.do(ctx, "GET", "/plans/upcoming"+q, nil, &d)
+	tag, err := r.get(ctx, "/plans/upcoming"+q, etag, &d)
+	return d, tag, err
 }
 
 // --- what tccd serves ---
@@ -300,6 +308,17 @@ type trainingCache struct {
 	From     string              `json:"from"`
 	NoPlan   bool                `json:"no_plan"`
 	Days     []RemoteUpcomingDay `json:"days"`
+	ETag     string              `json:"etag,omitempty"` // for If-None-Match
+}
+
+// same reports whether two reads would show the same plan.
+func (c *trainingCache) same(o *trainingCache) bool {
+	if c == nil || o == nil {
+		return c == o
+	}
+	a, _ := json.Marshal(trainingCache{From: c.From, NoPlan: c.NoPlan, Days: c.Days})
+	b, _ := json.Marshal(trainingCache{From: o.From, NoPlan: o.NoPlan, Days: o.Days})
+	return bytes.Equal(a, b)
 }
 
 func addDays(date string, n int) string {
@@ -404,29 +423,31 @@ func (s *Service) Training(ctx context.Context, from string, days int) (Training
 	}
 	s.mu.Unlock()
 
-	// Read the whole window when the ask is inside it, so the next one is cached.
-	askFrom, askDays := from, days
+	var err error
 	if inWindow {
-		askFrom, askDays = today, trainingWindow
-	}
-	token, err := s.tokens.Get()
-	var got []RemoteUpcomingDay
-	if err == nil {
-		got, err = (&remote{base: cfg.BaseURL, token: token, http: s.http}).upcoming(ctx, askFrom, askDays)
-	}
-	noPlan := statusOf(err) == http.StatusNotFound
-	if err == nil || noPlan {
-		if noPlan {
-			got = nil
+		var fresh *trainingCache
+		if fresh, err = s.readWindow(ctx); err == nil {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			return buildTraining(today, from, fresh.NoPlan, fresh.slice(from, days), s.trainingSyncLocked(fresh, "")), nil
 		}
-		fresh := &trainingCache{SyncedAt: s.now(), From: askFrom, NoPlan: noPlan, Days: got}
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		if inWindow && s.epoch == epoch {
-			s.train = fresh
-			s.save(keyTraining, fresh)
+	} else {
+		token, terr := s.tokens.Get()
+		var got []RemoteUpcomingDay
+		err = terr
+		if err == nil {
+			got, err = (&remote{base: cfg.BaseURL, token: token, http: s.http}).upcoming(ctx, from, days)
 		}
-		return buildTraining(today, from, noPlan, fresh.slice(from, days), s.trainingSyncLocked(fresh, "")), nil
+		noPlan := statusOf(err) == http.StatusNotFound
+		if err == nil || noPlan {
+			if noPlan {
+				got = nil
+			}
+			fresh := &trainingCache{SyncedAt: s.now(), From: from, NoPlan: noPlan, Days: got}
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			return buildTraining(today, from, noPlan, fresh.slice(from, days), s.trainingSyncLocked(fresh, "")), nil
+		}
 	}
 
 	if unauthorized(err) {
@@ -447,4 +468,62 @@ func (s *Service) Training(ctx context.Context, from string, days int) (Training
 		return Training{}, fmt.Errorf("%w: it answered %d", ErrUnreachable, statusOf(err))
 	}
 	return Training{}, fmt.Errorf("%w: %s and no plan has been read yet", ErrUnreachable, why)
+}
+
+// RefreshTraining reads the two-week window again now (a conditional GET, so
+// an unchanged plan costs a 304) and tells NotifyTraining when it changed.
+func (s *Service) RefreshTraining(ctx context.Context) error {
+	_, err := s.readWindow(ctx)
+	return err
+}
+
+// readWindow reads the plan from today for trainingWindow days, sending the
+// cached ETag. A 304 keeps the cached plan and makes it fresh again.
+func (s *Service) readWindow(ctx context.Context) (*trainingCache, error) {
+	s.mu.Lock()
+	if !s.cfg.Connected {
+		s.mu.Unlock()
+		return nil, ErrNotConnected
+	}
+	cfg, epoch, today := s.cfg, s.epoch, s.today()
+	c := s.loadTraining()
+	etag := ""
+	if c != nil && c.From == today {
+		etag = c.ETag
+	}
+	s.mu.Unlock()
+
+	token, err := s.tokens.Get()
+	if err != nil {
+		return nil, err
+	}
+	got, tag, err := (&remote{base: cfg.BaseURL, token: token, http: s.http}).upcomingIf(ctx, today, trainingWindow, etag)
+	var fresh *trainingCache
+	switch {
+	case errors.Is(err, errNotModified) && c != nil:
+		cp := *c
+		cp.SyncedAt = s.now()
+		fresh = &cp
+	case err == nil:
+		fresh = &trainingCache{SyncedAt: s.now(), From: today, Days: got, ETag: tag}
+	case statusOf(err) == http.StatusNotFound:
+		fresh = &trainingCache{SyncedAt: s.now(), From: today, NoPlan: true}
+	default:
+		if errors.Is(err, errNotModified) {
+			err = fmt.Errorf("%w: a 304 with nothing cached", ErrUnreachable)
+		}
+		return nil, err
+	}
+	s.mu.Lock()
+	changed := false
+	if s.epoch == epoch {
+		changed = !s.train.same(fresh)
+		s.train = fresh
+		s.save(keyTraining, fresh)
+	}
+	s.mu.Unlock()
+	if changed {
+		s.notifyTraining()
+	}
+	return fresh, nil
 }
