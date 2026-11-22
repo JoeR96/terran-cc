@@ -1,5 +1,5 @@
 import { describe as suite, it, expect } from 'vitest'
-import { dayName, setText, shortExercise, exerciseSummary, liftSummary, finisherShort, pick, open, liftTitle, trainingNote } from './training.js'
+import { dayName, setText, shortExercise, exerciseSummary, liftSummary, finisherShort, pick, open, liftTitle, trainingNote, weightText, needsWeight, dayView, addDays } from './training.js'
 
 // The plan as tccd serves it (GET /api/training), from plans_upcoming.json.
 const bench = {
@@ -21,7 +21,7 @@ suite('training labels', () => {
     expect(dayName('2026-11-24')).toBe('Tue 24 Nov')
     expect(setText({ weight_kg: 75, reps: 5, amrap: false })).toBe('75 kg × 5')
     expect(setText({ weight_kg: 75, reps: 10, amrap: true })).toBe('75 kg × 10+ (AMRAP)')
-    expect(setText({ weight_kg: 0, reps: 8, amrap: false })).toBe('bodyweight × 8')
+    expect(setText({ weight_kg: 0, reps: 8, amrap: false })).toBe('× 8')
     expect(shortExercise('Bench Press (Barbell)')).toBe('Bench Press')
   })
   it('sums a lift up by its main lift', () => {
@@ -67,5 +67,43 @@ suite('trainingNote', () => {
     const at = new Date(2026, 10, 22, 8, 5).toISOString()
     expect(trainingNote({ state: 'stale', stale: true, last_sync: at }, now)).toEqual({ kind: 'stale', text: 'Offline · plan from 08:05' })
     expect(trainingNote({ state: 'auth', stale: true }, now).kind).toBe('auth')
+  })
+})
+
+suite('weight 0', () => {
+  const curl = { name: 'Lying Leg Curl (Machine)', category: 'Accessory', sets: [{ weight_kg: 0, reps: 10, amrap: false }] }
+  const dip = { name: 'Bodyweight Dip', category: 'Accessory', sets: [{ weight_kg: 0, reps: 10, amrap: false }] }
+  const squat = { name: 'Squat (Barbell)', category: 'MainLift', sets: [{ weight_kg: 0, reps: 5, amrap: false }, { weight_kg: 0, reps: 10, amrap: true }] }
+  it('reads reps only, never bodyweight unless the name says so', () => {
+    expect(setText(curl.sets[0], curl)).toBe('× 10')
+    expect(setText(dip.sets[0], dip)).toBe('bodyweight × 10')
+    expect(weightText(curl, 0)).toBe('')
+  })
+  it('marks a loaded lift with no weight yet', () => {
+    expect(setText(squat.sets[1], squat)).toBe('— × 10+ (AMRAP)')
+    expect(needsWeight(squat)).toBe(true)
+    expect(needsWeight(curl)).toBe(false)
+    expect(needsWeight(bench)).toBe(false)
+    expect(exerciseSummary(squat)).toBe('2×5+ @ —')
+    expect(exerciseSummary(curl)).toBe('1×10')
+  })
+})
+
+suite('dayView', () => {
+  it('shows a rest today with the next planned day', () => {
+    expect(dayView(plan, '2026-11-22')).toEqual({ day: rest, rest: true, next: lift, future: false })
+  })
+  it('shows a future day without up next', () => {
+    expect(dayView(plan, '2026-11-23')).toEqual({ day: lift, rest: false, next: null, future: true })
+  })
+  it('finds days read beyond the cache', () => {
+    const far = { date: '2026-12-10', rest: false, sessions: [upperA] }
+    expect(dayView(plan, '2026-12-10', [far]).day).toBe(far)
+    expect(dayView(plan, '2026-12-11').day).toBe(null)
+    expect(dayView({ ...plan, no_plan: true }, '2026-11-22').day).toBe(null)
+  })
+  it('steps dates across months', () => {
+    expect(addDays('2026-11-30', 1)).toBe('2026-12-01')
+    expect(addDays('2026-12-01', -1)).toBe('2026-11-30')
   })
 })

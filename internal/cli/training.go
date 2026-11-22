@@ -33,21 +33,49 @@ func addDay(date string, n int) string {
 	return t.AddDate(0, 0, n).Format("2006-01-02")
 }
 
-// kg renders 75 as "75 kg" and 52.5 as "52.5 kg"; 0 is bodyweight.
-func kg(v float64) string {
-	if v == 0 {
+// kg renders 75 as "75 kg" and 52.5 as "52.5 kg".
+func kg(v float64) string { return num(v) + " kg" }
+
+// weightText is how an exercise's set weight reads. 99-Strength sends 0
+// both for bodyweight work and for a weight not set yet, so 0 reads
+// "bodyweight" only when the name says so, "—" (set weight) for a main or
+// auxiliary lift, which is always loaded, and nothing (reps only) otherwise.
+func weightText(e strength.TrainingExercise, v float64) string {
+	switch {
+	case v > 0:
+		return kg(v)
+	case strings.Contains(strings.ToLower(e.Name), "bodyweight"):
 		return "bodyweight"
+	case needsWeight(e):
+		return "—"
 	}
-	return num(v) + " kg"
+	return ""
+}
+
+// needsWeight reports a loaded lift whose weight is not set yet.
+func needsWeight(e strength.TrainingExercise) bool {
+	if e.Category != "MainLift" && e.Category != "Auxiliary" {
+		return false
+	}
+	for _, s := range e.Sets {
+		if s.WeightKg > 0 {
+			return false
+		}
+	}
+	return len(e.Sets) > 0
 }
 
 // setText renders "75 kg × 5", or "75 kg × 10+ (AMRAP)" for an AMRAP set,
-// whose reps are the rep-out target.
-func setText(s strength.TrainingSet) string {
-	if s.AMRAP {
-		return fmt.Sprintf("%s × %d+ (AMRAP)", kg(s.WeightKg), s.Reps)
+// whose reps are the rep-out target; "× 10" with no weight to show.
+func setText(e strength.TrainingExercise, s strength.TrainingSet) string {
+	w := weightText(e, s.WeightKg)
+	if w != "" {
+		w += " "
 	}
-	return fmt.Sprintf("%s × %d", kg(s.WeightKg), s.Reps)
+	if s.AMRAP {
+		return fmt.Sprintf("%s× %d+ (AMRAP)", w, s.Reps)
+	}
+	return fmt.Sprintf("%s× %d", w, s.Reps)
 }
 
 var equipment = regexp.MustCompile(`\s*\([^)]*\)\s*$`)
@@ -85,7 +113,11 @@ func liftSummary(l *strength.TrainingLift) string {
 	for _, s := range e.Sets {
 		top = max(top, s.WeightKg)
 	}
-	return fmt.Sprintf("%s %d×%d%s @ %s", shortExercise(e.Name), len(e.Sets), first.Reps, plus, kg(top))
+	head := fmt.Sprintf("%s %d×%d%s", shortExercise(e.Name), len(e.Sets), first.Reps, plus)
+	if w := weightText(e, top); w != "" {
+		head += " @ " + w
+	}
+	return head
 }
 
 // finisherShort is "Stair 10 min" from "Stair finisher" and "10 min · steady, level 8".
@@ -267,9 +299,13 @@ func (a *app) printDay(d strength.TrainingDay) {
 		for _, e := range s.Lift.Exercises {
 			sets := make([]string, len(e.Sets))
 			for i, x := range e.Sets {
-				sets[i] = setText(x)
+				sets[i] = setText(e, x)
 			}
-			a.printf("    %s\n      %s\n", e.Name, strings.Join(sets, " · "))
+			name := e.Name
+			if needsWeight(e) {
+				name += " (set weight in 99-Strength)"
+			}
+			a.printf("    %s\n      %s\n", name, strings.Join(sets, " · "))
 		}
 		if f := s.Lift.Finisher; f != nil {
 			a.printf("    Finisher: %s — %s\n", f.Name, f.Prescription)

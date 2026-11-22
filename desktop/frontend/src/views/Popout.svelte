@@ -9,7 +9,7 @@
   let { type, projectId = null } = $props()
 
   const NAMES = {
-    today: 'Today', week: 'This week', month: 'This month', anytime: 'Anytime', habits: 'Habits',
+    today: 'Today', week: 'This week', month: 'This month', anytime: 'Anytime', habits: 'Habits', training: 'Training',
     timer: 'Timer', osrs: 'OSRS', inprogress: 'In progress', inbox: 'Inbox', projects: 'Projects',
   }
   const widget = $derived({ id: 'pop', type, project_id: projectId })

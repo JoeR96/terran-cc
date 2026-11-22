@@ -125,3 +125,26 @@ func TestTrainingLinesStale(t *testing.T) {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
+
+func TestWeightZero(t *testing.T) {
+	set := func(w float64, amrap bool) strength.TrainingSet { return strength.TrainingSet{WeightKg: w, Reps: 10, AMRAP: amrap} }
+	curl := strength.TrainingExercise{Name: "Lying Leg Curl (Machine)", Category: "Accessory", Sets: []strength.TrainingSet{set(0, false)}}
+	dip := strength.TrainingExercise{Name: "Bodyweight Dip", Category: "Accessory", Sets: []strength.TrainingSet{set(0, false)}}
+	squat := strength.TrainingExercise{Name: "Squat (Barbell)", Category: "MainLift", Sets: []strength.TrainingSet{set(0, false), set(0, true)}}
+	cases := []struct{ got, want string }{
+		{setText(curl, set(0, false)), "× 10"},
+		{setText(dip, set(0, false)), "bodyweight × 10"},
+		{setText(squat, set(0, true)), "— × 10+ (AMRAP)"},
+		{setText(curl, set(52.5, false)), "52.5 kg × 10"},
+		{liftSummary(&strength.TrainingLift{Exercises: []strength.TrainingExercise{squat}}), "Squat 2×10+ @ —"},
+		{liftSummary(&strength.TrainingLift{Exercises: []strength.TrainingExercise{curl}}), "Lying Leg Curl 1×10"},
+	}
+	for _, c := range cases {
+		if c.got != c.want {
+			t.Errorf("got %q, want %q", c.got, c.want)
+		}
+	}
+	if !needsWeight(squat) || needsWeight(curl) || needsWeight(dip) {
+		t.Error("needsWeight: only a loaded lift with no weight needs one")
+	}
+}

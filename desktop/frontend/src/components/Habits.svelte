@@ -4,7 +4,6 @@
   import { select } from '../lib/actions.js'
   import { REMOTE } from '../lib/strength.js'
   import StrengthHabits from './StrengthHabits.svelte'
-  import Training from './Training.svelte'
 
   // wide: habits sit side by side as cards instead of one per line.
   let { bars = true, title = true, wide = false } = $props()
@@ -28,8 +27,6 @@
 {#if db.habitSource === REMOTE}
   <!-- Habits come from 99-Strength: counters with a minimum, the weigh-in. -->
   <StrengthHabits {bars} {title} {wide} />
-  <!-- Not in the side widget's one-line band (wide, no title): no room. -->
-  {#if title || !wide}<Training {wide} />{/if}
 {:else}
 {#if title}
   <h6>Habits <span class="streak" title="Days in a row with every habit hit">🔥{db.streak}</span></h6>
