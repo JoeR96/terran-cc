@@ -1,7 +1,7 @@
 <script>
   import { db, act } from '../lib/store.svelte.js'
   import { select } from '../lib/actions.js'
-  import { shortName, counterValue, pct, minPct, level, describe, parseAmount, syncNote, sourceTitle, streakTitle } from '../lib/strength.js'
+  import { shortName, counterValue, step, pct, level, describe, parseAmount, syncNote, sourceTitle, streakTitle } from '../lib/strength.js'
 
   // The habits panel when 99-Strength owns the habits. Same three shapes as
   // the local panel: a list (narrow side widget, dashboard widget) or cards
@@ -118,17 +118,15 @@
               {:else}
                 <button class="ghost val {level(h)}" title="Click to type an amount" onclick={() => startEdit(h)}>{counterValue(h)}</button>
               {/if}
-              <button class="tap" title="One less" aria-label="One less {h.name}" disabled={!(h.value > 0)} onclick={() => act.logHabit(h, { delta: -1 })}>−</button>
-              <button class="tap more" title="Add one{h.unit ? ' (' + h.unit + ')' : ''}" aria-label="Add one {h.name}" onclick={() => act.logHabit(h, { delta: 1 })}>+</button>
+              <button class="tap" title="Take off {num(step(h))}{h.unit ? ' ' + h.unit : ''}" aria-label="Take off {num(step(h))} {h.name}" disabled={!(h.value > 0)} onclick={() => act.logHabit(h, { delta: -step(h) })}>−</button>
+              <button class="tap more" title="Add {num(step(h))}{h.unit ? ' ' + h.unit : ''}" aria-label="Add {num(step(h))} {h.name}" onclick={() => act.logHabit(h, { delta: step(h) })}>+</button>
             {/if}
           </span>
         </div>
       {/if}
       {#if h.kind === 'counter' && (bars || wide)}
-        <div class="bar">
-          <i style="width:{pct(h)}%"></i>
-          {#if minPct(h) !== null}<b class="mark" style="left:{minPct(h)}%" title="Minimum {num(h.minimum)}"></b>{/if}
-        </div>
+        <!-- The minimum is in the tooltip and turns the fill yellow; no marker line. -->
+        <div class="bar"><i style="width:{pct(h)}%"></i></div>
       {:else if wide}
         <div class="bar"><i style="width:{h.hit ? 100 : 0}%"></i></div>
       {/if}
@@ -176,8 +174,6 @@
   .bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
   .min .bar i { background: var(--yellow); }
   .hit .bar i { background: var(--green); }
-  /* The minimum: a notch on the bar that the fill has to pass. */
-  .bar .mark { position: absolute; top: -2px; width: 2px; height: 7px; margin-left: -1px; background: var(--strong); border-radius: 1px; }
 
   .habs.wide { display: flex; flex-direction: column; min-width: 0; }
   .wide .cells { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
@@ -195,5 +191,4 @@
   .wide .bar i { border-radius: 0; background: var(--accent-fill); }
   .wide .min .bar i { background: var(--yellow-line); }
   .wide .hit .bar i { background: var(--green-fill); }
-  .wide .bar .mark { top: 0; bottom: 0; height: auto; width: 0; margin-left: 0; background: none; border-left: 2px dotted var(--muted); border-radius: 0; }
 </style>

@@ -13,8 +13,15 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 // shortName drops a trailing "(…)" so "Water (532ml bottle)" fits a narrow row.
 export const shortName = name => name.replace(/\s*\([^)]*\)\s*$/, '') || name
 
-// counterValue renders "3/6".
-export const counterValue = h => `${num(h.value)}/${num(h.target)}`
+// step is how much one tap moves a counter (Protein: 25 g); 1 when unset.
+export const step = h => (h.step > 0 ? h.step : 1)
+
+// counterValue renders "3/6", or "75/180 g" when the habit has a short unit.
+// A long unit ("bottles") stays in the tooltip so a narrow row still fits.
+export const counterValue = h => {
+  const u = h.unit && h.unit.length <= 3 ? ' ' + h.unit : ''
+  return `${num(h.value)}/${num(h.target)}${u}`
+}
 
 // pct is how full the bar is.
 export const pct = h => Math.max(0, Math.min(100, (h.value / (h.target || 1)) * 100))

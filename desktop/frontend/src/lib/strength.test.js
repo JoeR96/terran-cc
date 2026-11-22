@@ -1,9 +1,10 @@
 import { describe as suite, it, expect } from 'vitest'
-import { shortName, counterValue, pct, minPct, level, describe, parseAmount, optimistic, syncTime, syncNote, sourceTitle, streakTitle } from './strength.js'
+import { shortName, counterValue, step, pct, minPct, level, describe, parseAmount, optimistic, syncTime, syncNote, sourceTitle, streakTitle } from './strength.js'
 
 // Habits as tccd serves them when 99-Strength is the source.
 const water = { id: 1, name: 'Water (532ml bottle)', kind: 'counter', type: 'count', unit: 'bottles', target: 6, minimum: 4, step: 1, value: 3, hit: false, source: '99-strength' }
 const weigh = { id: 3, name: 'Morning weigh-in', kind: 'numeric', type: 'numeric', unit: 'kg', target: 1, minimum: 1, value: 0, hit: false, source: '99-strength' }
+const protein = { id: 6, name: 'Protein', kind: 'counter', type: 'count', unit: 'g', target: 180, minimum: 150, step: 25, value: 75, hit: false, source: '99-strength' }
 const crea = { id: 5, name: 'Creatine (3–5g)', kind: 'checkbox', type: 'check', unit: '', target: 1, minimum: 1, step: 1, value: 0, hit: false, source: '99-strength' }
 
 suite('labels', () => {
@@ -16,6 +17,17 @@ suite('labels', () => {
   it('shows a counter as value/target', () => {
     expect(counterValue(water)).toBe('3/6')
     expect(counterValue({ ...water, value: 7 })).toBe('7/6')
+  })
+  it('adds a short unit to the value', () => {
+    expect(counterValue(protein)).toBe('75/180 g')
+  })
+  it('moves a counter by its step, 1 when there is none', () => {
+    expect(step(protein)).toBe(25)
+    expect(step(water)).toBe(1)
+    expect(step({ ...water, step: undefined })).toBe(1)
+    expect(step({ ...water, step: 0 })).toBe(1)
+    expect(optimistic(protein, { delta: step(protein) }).value).toBe(100)
+    expect(optimistic(protein, { delta: -step(protein) }).value).toBe(50)
   })
   it('describes each kind for the tooltip', () => {
     expect(describe(water)).toBe('Water (532ml bottle) · 3 of 6 bottles · minimum 4')

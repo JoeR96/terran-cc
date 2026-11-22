@@ -84,10 +84,19 @@ type op struct {
 	Date     string    `json:"date"`
 	Kind     string    `json:"kind"`
 	Delta    int       `json:"delta,omitempty"`
+	Step     float64   `json:"step,omitempty"`   // what one increment adds; 0 is 1
 	Value    float64   `json:"value"`            // what this write should leave behind
 	Weight   bool      `json:"weight,omitempty"` // a weigh-in: also PUT /body-weight/{date}
 	At       time.Time `json:"at"`
 	Attempts int       `json:"attempts,omitempty"`
+}
+
+// change is what an increment adds: its delta times the habit's step.
+func (o op) change() float64 {
+	if o.Step > 0 {
+		return float64(o.Delta) * o.Step
+	}
+	return float64(o.Delta)
 }
 
 type idMap struct {
@@ -429,7 +438,7 @@ func (s *Service) overlay(h RemoteHabit, date string) (value float64, minHit, hi
 		if o.Kind == opSet {
 			value = o.Value
 		} else {
-			value = max(0, value+float64(o.Delta))
+			value = max(0, value+o.change())
 		}
 	}
 	if pending > 0 {
@@ -560,7 +569,7 @@ func (s *Service) Log(ctx context.Context, ref string, lop core.LogOp) (model.Ha
 	}
 	var done chan struct{}
 	if !p.noop {
-		o := op{ID: newID(), HabitID: h.ID, Name: h.Name, Date: date, Kind: p.kind, Delta: p.delta, Value: p.value, Weight: p.weight, At: s.now()}
+		o := op{ID: newID(), HabitID: h.ID, Name: h.Name, Date: date, Kind: p.kind, Delta: p.delta, Step: p.step, Value: p.value, Weight: p.weight, At: s.now()}
 		s.queue = append(s.queue, o)
 		s.save(keyQueue, s.queue)
 		if live && s.logWait > 0 {
@@ -844,7 +853,7 @@ func (s *Service) queueAsSetsLocked() {
 				base, ok = s.confirmedLocked(o.HabitID, o.Date)
 			}
 			if ok {
-				o.Value = max(0, base+float64(o.Delta))
+				o.Value = max(0, base+o.change())
 			}
 			o.Kind, o.Delta = opSet, 0
 		}

@@ -31,7 +31,8 @@ type Habit struct {
 	Minimum float64
 	Unit    string // "" is null
 	Order   int
-	Icon    string // "" is null
+	Icon    string  // "" is null
+	Step    float64 // a counter tap; 0 is 1 and leaves "step" out of the DTO
 }
 
 type logged struct {
@@ -369,6 +370,9 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 			l = &logged{0, at}
 			if *req.Delta > 0 {
 				l.value = 1
+				if h.Type == "Counter" && h.Step > 0 {
+					l.value = h.Step
+				}
 			}
 			day[h.ID] = l
 		default:
@@ -381,7 +385,11 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request, body []byte) (lost 
 			case h.Type == "Checkbox":
 				l.value = 0
 			default:
-				l.value = max(0, l.value+float64(*req.Delta))
+				step := 1.0
+				if h.Step > 0 {
+					step = h.Step
+				}
+				l.value = max(0, l.value+float64(*req.Delta)*step)
 			}
 		}
 		if loseIt() {
@@ -430,10 +438,14 @@ func (f *Fake) today(date string) map[string]any {
 		}
 		metMin, metTarget := l != nil && v >= h.Minimum, l != nil && v >= h.Target
 		all = all && metMin
-		habits = append(habits, map[string]any{
+		dto := map[string]any{
 			"id": h.ID, "name": h.Name, "type": h.Type, "target": dec(h.Target), "minimum": dec(h.Minimum), "unit": ptr(h.Unit),
 			"value": dec(v), "metMinimum": metMin, "metTarget": metTarget, "order": h.Order, "icon": ptr(h.Icon),
-		})
+		}
+		if h.Step > 0 {
+			dto["step"] = dec(h.Step)
+		}
+		habits = append(habits, dto)
 	}
 	current := f.streak
 	var last *string

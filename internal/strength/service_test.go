@@ -290,7 +290,7 @@ func TestEveryHabitKindMapsOntoTheTerranShape(t *testing.T) {
 
 func TestIcons(t *testing.T) {
 	s := func(v string) *string { return &v }
-	for in, want := range map[string]string{"droplets": "💧", "scale": "⚖️", "🚶": "🚶", "unknown-key": ""} {
+	for in, want := range map[string]string{"droplets": "💧", "scale": "⚖️", "🚶": "🚶", "meat": "🥩", "beef": "🥩", "drumstick": "🥩", "unknown-key": ""} {
 		if got := iconFor(s(in)); got != want {
 			t.Errorf("icon %q: %q, want %q", in, got, want)
 		}
@@ -966,5 +966,89 @@ func TestOtherDatesAreReadLive(t *testing.T) {
 	e.fake.Down(503)
 	if _, err := e.svc.Habits(bg, "2026-11-07"); !errors.Is(err, ErrUnreachable) {
 		t.Fatalf("offline: %v", err)
+	}
+}
+
+// --- counters with a step (Protein: 25 g a tap) ---
+
+const proteinID = "0f6c2b7e-5d43-4c1a-9a57-2f1f4a7c1006"
+
+func withProtein(t *testing.T) *env {
+	e := connected(t)
+	e.fake.SetHabits(append(strengthtest.SeedHabits(), strengthtest.Habit{
+		ID: proteinID, Name: "Protein", Type: "Counter", Target: 180, Minimum: 150, Unit: "g", Order: 6, Icon: "meat", Step: 25,
+	}))
+	e.svc.Sync(bg)
+	return e
+}
+
+func TestStepDecodesDefensively(t *testing.T) {
+	var hs []RemoteHabit
+	if err := json.Unmarshal([]byte(`[{"name":"Water"},{"name":"Protein","step":25.00},{"name":"Odd","step":0}]`), &hs); err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []float64{1, 25, 1} {
+		if got := hs[i].StepOf(); got != want {
+			t.Errorf("%s: step %v, want %v", hs[i].Name, got, want)
+		}
+	}
+}
+
+func TestACounterMovesByItsStep(t *testing.T) {
+	e := withProtein(t)
+	p := e.habit("Protein")
+	if p.Step != 25 || p.Unit != "g" || p.Icon != "🥩" || p.Type != model.HabitCount {
+		t.Fatalf("protein: %+v", p)
+	}
+	if w := e.habit("Water"); w.Step != 1 {
+		t.Fatalf("a habit without a step moves by 1: %+v", w)
+	}
+
+	// A bare log is one tap: delta 1, and 99-Strength adds 25.
+	if d := e.log("protein", core.LogOp{}); d.Value != 25 {
+		t.Fatalf("one tap: %+v", d)
+	}
+	e.svc.Sync(bg)
+	// +50 is two taps' worth; -25 is one tap off.
+	e.log("protein", core.LogOp{Delta: f(50)})
+	e.svc.Sync(bg)
+	e.log("protein", core.LogOp{Delta: f(-25)})
+	e.svc.Sync(bg)
+	if v := e.fake.Value(proteinID, fixDate); v != 50 {
+		t.Fatalf("protein: %v", v)
+	}
+	got := strings.Join(e.writes(), "\n")
+	for _, want := range []string{`"delta":1}`, `"value":75}`, `"delta":-1}`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("writes should contain %s:\n%s", want, got)
+		}
+	}
+	// Not a whole number of steps: refused, nothing sent.
+	n := len(e.writes())
+	for _, d := range []float64{30, 1, -10} {
+		if _, err := e.svc.Log(bg, "protein", core.LogOp{Delta: f(d)}); !errors.Is(err, core.ErrInvalid) || !strings.Contains(err.Error(), "steps of 25 g") {
+			t.Errorf("%v: %v", d, err)
+		}
+	}
+	e.svc.Sync(bg)
+	if len(e.writes()) != n {
+		t.Fatalf("a refused amount should send nothing: %v", e.writes())
+	}
+}
+
+func TestQueuedStepTapsReplayAsTheirValue(t *testing.T) {
+	e := withProtein(t)
+	e.fake.Put(proteinID, fixDate, 100, time.Date(2026, 11, 9, 8, 0, 0, 0, time.UTC))
+	e.log("protein", core.LogOp{})
+	e.log("protein", core.LogOp{})
+	e.fake.DownAfter(1)
+	e.svc.Sync(bg)
+	if got := e.fake.Value(proteinID, fixDate); got != 125 {
+		t.Fatalf("after the first tap: %v", got)
+	}
+	e.fake.Down(0)
+	e.svc.Sync(bg)
+	if got := e.fake.Value(proteinID, fixDate); got != 150 {
+		t.Fatalf("100 + two taps of 25 should be 150, got %v", got)
 	}
 }

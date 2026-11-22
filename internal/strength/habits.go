@@ -38,6 +38,9 @@ var icons = map[string]string{
 	"book-open":          "📖",
 	"apple":              "🍎",
 	"sun":                "☀️",
+	"meat":               "🥩",
+	"beef":               "🥩",
+	"drumstick":          "🥩",
 }
 
 func iconFor(icon *string) string {
@@ -60,7 +63,7 @@ func isWeighIn(h RemoteHabit) bool {
 }
 
 // toHabitDay maps a 99-Strength habit onto Terran CC's habit shape:
-// Counter is a count with step 1, Checkbox a check, Numeric the new
+// Counter is a count that moves by the habit's step, Checkbox a check, Numeric the new
 // "numeric" type. Hit means the full target; MinHit the bad-day minimum.
 func toHabitDay(h RemoteHabit, id int64, date string, value float64, minHit, hit bool, pending int) model.HabitDay {
 	d := model.HabitDay{
@@ -78,7 +81,7 @@ func toHabitDay(h RemoteHabit, id int64, date string, value float64, minHit, hit
 	case kindNumeric:
 		d.Type = model.HabitNumeric
 	default:
-		d.Type, d.Step = model.HabitCount, 1
+		d.Type, d.Step = model.HabitCount, h.StepOf()
 	}
 	return d
 }
@@ -160,6 +163,7 @@ func num(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 type planned struct {
 	kind   string
 	delta  int
+	step   float64 // what one increment adds
 	value  float64 // the value the habit should end up with
 	weight bool
 	noop   bool // nothing would change, so nothing is sent
@@ -221,26 +225,37 @@ func plan(h RemoteHabit, cur float64, lop core.LogOp, live bool) (planned, error
 		v := round(math.Max(*lop.Set, 0), 2)
 		return planned{kind: opSet, value: v, noop: v == cur}, nil
 	}
-	d := 1.0
+	step := h.StepOf()
+	unit := ""
+	if h.Unit != nil {
+		unit = " " + *h.Unit
+	}
+	d := step
 	if lop.Delta != nil {
 		d = *lop.Delta
+	}
+	// 99-Strength moves a counter by whole steps (Protein: 25 g a tap), so
+	// an amount has to be a number of steps.
+	taps := d / step
+	if math.Abs(taps-math.Round(taps)) > 1e-9 {
+		return planned{}, invalid("%s goes up in steps of %s%s, so %s is not a whole number of steps",
+			h.Name, num(step), unit, num(d))
 	}
 	v := round(math.Max(cur+d, 0), 2)
 	// 99-Strength counts in whole things (water is bottles, not ml). An old
 	// habit like "water +250" would wreck the day, so refuse the absurd.
 	if d > 0 && v > math.Max(h.Target*5, h.Target+20) {
-		unit := ""
-		if h.Unit != nil {
-			unit = " " + *h.Unit
-		}
 		return planned{}, invalid("%s has a target of %s%s, so +%s looks wrong (use =%s if you mean it)",
 			h.Name, num(h.Target), unit, num(d), num(v))
 	}
 	if v == cur {
 		return planned{noop: true, value: v}, nil
 	}
-	if live && (d == 1 || d == -1) && cur+d >= 0 {
-		return planned{kind: opInc, delta: int(d), value: v}, nil
+	// One tap is sent as 99-Strength's increment (delta ±1; the server adds
+	// ±step). More taps become "set to value", which lands the same and is
+	// safe to repeat.
+	if t := math.Round(taps); live && (t == 1 || t == -1) && cur+d >= 0 {
+		return planned{kind: opInc, delta: int(t), step: step, value: v}, nil
 	}
 	return planned{kind: opSet, value: v}, nil
 }
