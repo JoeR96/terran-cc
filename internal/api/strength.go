@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"terrancc/internal/strength"
@@ -76,5 +77,32 @@ func (s *server) strengthRoutes(mux *http.ServeMux) {
 		ctx, cancel := context.WithTimeout(r.Context(), strengthTimeout)
 		defer cancel()
 		writeJSON(w, 200, s.strength.Sync(ctx))
+	})
+	// Training: the plan from 99-Strength, today first. ?from=YYYY-MM-DD
+	// and ?days=N (1-31) pick another range. While 99-Strength is down the
+	// last plan read comes back with sync.stale set.
+	mux.HandleFunc("GET /api/training", func(w http.ResponseWriter, r *http.Request) {
+		if !s.remoteHabits() {
+			writeErr(w, strength.ErrNotConnected)
+			return
+		}
+		q := r.URL.Query()
+		days := 0
+		if v := q.Get("days"); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				writeErr(w, badRequest("days must be a number from 1 to 31"))
+				return
+			}
+			days = n
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), strengthTimeout)
+		defer cancel()
+		t, err := s.strength.Training(ctx, q.Get("from"), days)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, 200, t)
 	})
 }

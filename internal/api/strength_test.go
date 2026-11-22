@@ -401,3 +401,34 @@ func TestTheTokenIsNowhereButTheTokenStore(t *testing.T) {
 		t.Fatal("the token store should still hold the token")
 	}
 }
+
+func TestTrainingOverHTTP(t *testing.T) {
+	e := newStrengthEnv(t)
+	var m map[string]string
+	if c := e.call("GET", "/api/training", nil, &m); c != 409 {
+		t.Fatalf("not connected: %d %v", c, m)
+	}
+	e.fake.SetPlan(strengthtest.SeedPlan(time.Now().In(mustLondon(t))))
+	e.connect()
+	var tr strength.Training
+	if c := e.call("GET", "/api/training", nil, &tr); c != 200 {
+		t.Fatalf("training: %d", c)
+	}
+	if tr.Today != e.today() || len(tr.Days) != 7 || !tr.Days[0].Rest || tr.Sync == nil || tr.Sync.State != "ok" {
+		t.Fatalf("training: %+v", tr)
+	}
+	up := tr.Days[1].Sessions[0]
+	if up.Kind != "lift" || up.Label != "Upper B" || up.Lift == nil || up.Lift.Finisher == nil || len(up.Lift.Exercises) != 3 {
+		t.Fatalf("up next: %+v", up)
+	}
+	if c := e.call("GET", "/api/training?days=x", nil, &m); c != 400 {
+		t.Fatalf("days=x: %d", c)
+	}
+	if c := e.call("GET", "/api/training?from=2026-01-01&days=40", nil, &m); c != 400 {
+		t.Fatalf("days=40: %d", c)
+	}
+	e.fake.SetPlan(nil)
+	if c := e.call("GET", "/api/training?from=2030-01-01&days=2", nil, &tr); c != 200 || !tr.NoPlan {
+		t.Fatalf("no plan: %+v", tr)
+	}
+}

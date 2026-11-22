@@ -45,6 +45,7 @@ Add `--json` to any command when you need to read the result. Errors then come b
 | See habits | `tcc habit` (run this first: it shows each habit's unit, target and where habits come from) |
 | Log a habit | `tcc habit log water` (one step), `tcc habit log walks`, `tcc habit log creatine toggle` |
 | Log an amount | Local habits: `tcc habit log water +250` (ml). When `tcc habit` says "99-Strength": counters go up in ones (water is bottles, so `+250` is refused), and the weigh-in takes a number: `tcc habit log weigh-in 94.6` |
+| What's my workout? | `tcc workout` (today, or the next planned day on a rest day; also `tomorrow`, `next`, `YYYY-MM-DD`). Needs 99-Strength connected |
 | Start a focus session | `tcc timer start --item <id>` |
 | Projects | `tcc project ls`, `tcc project show <slug>` |
 

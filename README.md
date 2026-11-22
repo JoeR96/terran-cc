@@ -121,6 +121,17 @@ If 99-Strength stops accepting the token, the widget and `tcc status` say "token
 
 Run `tcc strength disconnect`. It deletes the token and the saved 99-Strength values. Your local habits and their history were never touched, so they show again as you left them. If changes are still waiting, it stops and tells you. Run `tcc strength sync` first, or add `--force` to drop them.
 
+## Training from 99-Strength
+
+Once 99-Strength is connected, Terran CC also shows your training plan. Nothing to set up.
+
+- `tcc status` has a line for it: `🏋 Today: Upper A (planned) · finisher: Stair 10 min`. Done sessions get a ✓. On a rest day, or once today is done, it adds the next planned day: `Up next: Tue 24 Nov Upper B — Bench Press 5×5+ @ 75 kg`.
+- `tcc workout` prints today's sessions, and for a lift every set: `75 kg × 5`. The last set of a main lift is AMRAP and shows the reps to beat: `75 kg × 10+ (AMRAP)`. On a rest day it shows the next planned day and says so.
+- `tcc workout tomorrow`, `tcc workout next` and `tcc workout 2026-11-24` show other days. Weights for later days can still change if you finish sessions before then.
+- The desktop widget shows a Training card under the habits: today, and up next. Hover a lift to see every set.
+
+If 99-Strength is offline you see the last plan read, with the time it was read. Without an active plan in 99-Strength it says so. `--json` works on both commands.
+
 ## Stream Deck buttons
 
 Use the Stream Deck's built-in "Open" (System) action and point it at `tccw.exe` in your Go bin folder, with these arguments. `tccw` is the same as `tcc` but runs without a console window, so nothing flashes on screen when you press a button.

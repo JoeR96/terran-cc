@@ -244,6 +244,23 @@ func (c *Client) StrengthDisconnect() (int, error) {
 	return out.Dropped, c.do("POST", "/api/strength/disconnect", nil, &out)
 }
 
+// Training is the plan from 99-Strength: from "" is today, days 0 is two weeks.
+func (c *Client) Training(from string, days int) (strength.Training, error) {
+	var t strength.Training
+	q := url.Values{}
+	if from != "" {
+		q.Set("from", from)
+	}
+	if days > 0 {
+		q.Set("days", strconv.Itoa(days))
+	}
+	path := "/api/training"
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	return t, c.do("GET", path, nil, &t)
+}
+
 func (c *Client) StrengthSync() (strength.Status, error) {
 	var st strength.Status
 	return st, c.do("POST", "/api/strength/sync", nil, &st)

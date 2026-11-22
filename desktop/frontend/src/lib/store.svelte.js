@@ -18,6 +18,7 @@ export const db = $state({
   timer: null,
   boards: [],
   notes: '', // the side widget scratchpad
+  training: null, // the plan from 99-Strength (GET /api/training), null when not connected
   osrs: null, // RuneLite runs, bank stock and skill targets
   now: Math.floor(Date.now() / 1000), // ticks every 15s so countdowns move
   phaseEnded: 0, // bumps on timer.phase so a view can chime
@@ -32,6 +33,10 @@ const loaders = {
     db.habitSource = h.source || 'local'
     db.habitSync = h.sync || null
     db.streakInfo = h.streak_info || null
+  },
+  async training() {
+    // 409 while 99-Strength is not connected: no card.
+    db.training = await api('GET', '/api/training').catch(() => null)
   },
   async items() {
     db.items = await api('GET', '/api/items')
@@ -74,6 +79,8 @@ export async function loadAll() {
 
 export function start() {
   setInterval(() => (db.now = Math.floor(Date.now() / 1000)), 15000)
+  // A session finished on the phone changes the plan; tccd keeps it 2 min.
+  setInterval(() => reload('training'), 5 * 60000)
   let day = isoDate(new Date())
   // Habits and Today reset at local midnight; reload when the date changes.
   setInterval(() => {
@@ -81,6 +88,7 @@ export function start() {
     if (now !== day) {
       day = now
       reload('habits')
+      reload('training')
       reload('items')
     }
   }, 30000)
@@ -89,7 +97,7 @@ export function start() {
       switch (e.type) {
         case 'item.changed': reload('items'); break
         case 'project.changed': reload('projects'); break
-        case 'habit.changed': reload('habits'); break
+        case 'habit.changed': reload('habits'); reload('training'); break
         case 'timer.tick': db.timer = e.data; break
         case 'timer.phase': db.timer = e.data; db.phaseEnded++; break
         case 'osrs.changed': case 'osrs.ready': reload('osrs'); break
@@ -159,6 +167,7 @@ export const act = {
       .catch(fail)
   },
   // Replays anything queued for 99-Strength and reads today's habits again.
+  loadTraining: () => loaders.training(),
   syncStrength: () =>
     api('POST', '/api/strength/sync')
       .then(() => loaders.habits())

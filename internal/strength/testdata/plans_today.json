@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-23",
+  "phase": 0,
+  "sessions": [
+    {
+      "kind": 1,
+      "label": "Upper A",
+      "status": 1,
+      "liftDay": 1,
+      "cardioProtocolId": null,
+      "mobilityRoutineId": null,
+      "completionId": "5a1c9d2e-7f30-4b8e-9c61-0d2e4f6a8b01",
+      "hevyRoutineId": "f3b0c1d2-hevy-routine",
+      "gymSessionId": null,
+      "hevyPostStatus": "Posted",
+      "warmUpRoutineId": null,
+      "finisherCardioProtocolId": null,
+      "finisherCardioTrackId": null
+    },
+    {
+      "kind": 3,
+      "label": "Mobility A",
+      "status": 0,
+      "liftDay": null,
+      "cardioProtocolId": null,
+      "mobilityRoutineId": "9e8d7c6b-5a49-4382-a1b0-c9d8e7f6a501",
+      "completionId": null,
+      "hevyRoutineId": null,
+      "gymSessionId": null,
+      "hevyPostStatus": null,
+      "warmUpRoutineId": null,
+      "finisherCardioProtocolId": null,
+      "finisherCardioTrackId": null
+    }
+  ],
+  "week": {
+    "weekStart": "2026-11-23",
+    "liftsPlanned": 3,
+    "liftsDone": 1,
+    "cardioPlanned": 2,
+    "cardioDone": 0,
+    "mobilityPlanned": 3,
+    "mobilityDone": 0,
+    "flexibleMealsUsed": 0,
+    "flexibleMealsAllowed": 2,
+    "alcoholOccasions": 0,
+    "alcoholAllowed": 1,
+    "highIntensityMinutesDone": 0,
+    "highIntensityMinutesMin": 8,
+    "highIntensityMinutesMax": 16
+  }
+}
