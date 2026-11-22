@@ -73,6 +73,7 @@ type env struct {
 	tokens *MemoryTokens
 	logs   *logBuf
 	notes  atomic.Int32
+	tnotes atomic.Int32 // NotifyTraining calls
 	mu     sync.Mutex
 	now    time.Time
 	svc    *Service
@@ -98,6 +99,7 @@ func (e *env) open(o Options) *Service {
 	e.t.Helper()
 	o.Store, o.Tokens, o.Now, o.Logf = e.store, e.tokens, e.clock, e.logs.logf
 	o.Notify = func() { e.notes.Add(1) }
+	o.NotifyTraining = func() { e.tnotes.Add(1) }
 	if o.HTTP == nil {
 		o.HTTP = &http.Client{Timeout: 2 * time.Second}
 	}

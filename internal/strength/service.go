@@ -68,6 +68,7 @@ type config struct {
 type cached struct {
 	SyncedAt time.Time   `json:"synced_at"`
 	Today    RemoteToday `json:"today"`
+	ETag     string      `json:"etag,omitempty"` // for If-None-Match
 }
 
 const (
@@ -153,8 +154,20 @@ type Options struct {
 	// Notify is called (never under a lock) when what the habit widget
 	// shows has changed. tccd publishes habit.changed from it.
 	Notify func()
-	Now    func() time.Time
-	HTTP   *http.Client
+	// NotifyTraining is called (never under a lock) when the cached plan
+	// changed. tccd publishes training.changed from it.
+	NotifyTraining func()
+	// PollEvery is how often /sync/version is polled when 99-Strength has
+	// no event stream. 0 is 20 s.
+	PollEvery time.Duration
+	// RetryMin is the first wait before reconnecting the event stream; it
+	// doubles up to a minute. 0 is 1 s.
+	RetryMin time.Duration
+	// StreamIdle drops an event stream that has sent nothing (not even a
+	// keepalive) for this long. 0 is 75 s.
+	StreamIdle time.Duration
+	Now        func() time.Time
+	HTTP       *http.Client
 	// Refresh is how often today is re-read while all is well.
 	Refresh time.Duration
 	// LogWait is how long a log waits for 99-Strength before it answers
@@ -167,6 +180,7 @@ type Service struct {
 	store   Settings
 	tokens  TokenStore
 	notify  func()
+	notifyT func()
 	now     func() time.Time
 	http    *http.Client
 	refresh time.Duration
@@ -191,12 +205,15 @@ type Service struct {
 	lastAttempt time.Time
 	epoch       int // bumps on connect and disconnect; stale rounds are ignored
 	waiters     map[string]chan struct{}
+	settled     []chan struct{} // writes sent; their Log answers after the re-read
+
+	live liveState // the event stream or version polling (live.go)
 }
 
 // New loads the saved connection, cache and queue.
 func New(o Options) (*Service, error) {
 	s := &Service{
-		store: o.Store, tokens: o.Tokens, notify: o.Notify, now: o.Now, http: o.HTTP,
+		store: o.Store, tokens: o.Tokens, notify: o.Notify, notifyT: o.NotifyTraining, now: o.Now, http: o.HTTP,
 		refresh: o.Refresh, logWait: o.LogWait, logf: o.Logf,
 		wake: make(chan struct{}, 1), sem: make(chan struct{}, 1),
 		ids:     idMap{Next: 1, IDs: map[string]int64{}},
@@ -205,6 +222,10 @@ func New(o Options) (*Service, error) {
 	if s.notify == nil {
 		s.notify = func() {}
 	}
+	if s.notifyT == nil {
+		s.notifyT = func() {}
+	}
+	s.live = newLiveState(o)
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -349,6 +370,7 @@ func (s *Service) Connect(ctx context.Context, baseURL, token string) (Status, e
 	s.save(keyConfig, s.cfg)
 	s.offline, s.lastErr, s.failures, s.dropNote = false, "", 0, ""
 	s.epoch++
+	s.restartLiveLocked()
 	s.mu.Unlock()
 	s.logf("strength: connected to %s as %s (token %q)", base, who.Email, who.TokenName)
 
@@ -377,13 +399,12 @@ func (s *Service) Disconnect() (int, error) {
 	s.save(keyIDs, s.ids)
 	s.train = nil
 	s.save(keyTraining, trainingCache{})
-	for id, ch := range s.waiters {
-		close(ch)
-		delete(s.waiters, id)
-	}
+	s.releaseLocked()
+	s.restartLiveLocked()
 	s.mu.Unlock()
 	s.logf("strength: disconnected (%d queued writes dropped)", dropped)
 	s.notify()
+	s.notifyTraining()
 	return dropped, nil
 }
 
@@ -711,7 +732,31 @@ func (s *Service) round(ctx context.Context) {
 		}
 	}
 
-	t, err := r.today(ctx, s.today())
+	// Read the whole of today again, not just what was written: the phone
+	// or the web app may have logged other habits meanwhile.
+	date := s.today()
+	s.mu.Lock()
+	etag := ""
+	if s.cache != nil && s.cache.Today.Date == date && s.epoch == epoch {
+		etag = s.cache.ETag
+	}
+	s.mu.Unlock()
+	t, tag, err := r.todayIf(ctx, date, etag)
+	if errors.Is(err, errNotModified) {
+		s.change(func() {
+			if s.epoch != epoch || s.cache == nil {
+				return
+			}
+			if s.offline {
+				s.logf("strength: back online")
+			}
+			s.cache.SyncedAt = s.now() // unchanged, and known to be so now
+			s.save(keyToday, s.cache)
+			s.offline, s.lastErr, s.failures = false, "", 0
+			s.settleLocked()
+		})
+		return
+	}
 	if err != nil {
 		fail("reading today", err)
 		return
@@ -730,9 +775,10 @@ func (s *Service) round(ctx context.Context) {
 		if s.offline {
 			s.logf("strength: back online")
 		}
-		s.cache = &cached{SyncedAt: s.now(), Today: t}
+		s.cache = &cached{SyncedAt: s.now(), Today: t, ETag: tag}
 		s.save(keyToday, s.cache)
 		s.offline, s.lastErr, s.failures = false, "", 0
+		s.settleLocked()
 	})
 }
 
@@ -760,10 +806,22 @@ func (s *Service) removeLocked(id string) {
 	}
 	s.save(keyQueue, s.queue)
 	if ch, ok := s.waiters[id]; ok {
-		close(ch)
+		// Answered once today has been read again, so the Log that made
+		// it sees every other habit's latest value too.
+		s.settled = append(s.settled, ch)
 		delete(s.waiters, id)
 	}
 }
+
+// settleLocked lets the Logs whose writes were sent answer now.
+func (s *Service) settleLocked() {
+	for _, ch := range s.settled {
+		close(ch)
+	}
+	s.settled = nil
+}
+
+func (s *Service) notifyTraining() { s.notifyT() }
 
 func (s *Service) sent(epoch int, o op, value float64) {
 	s.change(func() {
@@ -778,6 +836,7 @@ func (s *Service) sent(epoch int, o op, value float64) {
 					h.Value, h.MetMinimum, h.MetTarget = value, value >= h.Minimum, value >= h.Target
 				}
 			}
+			s.cache.ETag = "" // patched by hand: the next read must be a full one
 			s.save(keyToday, s.cache)
 		}
 	})
@@ -835,6 +894,7 @@ func (s *Service) needToken(epoch int, why string) {
 		s.queueAsSetsLocked()
 		s.save(keyQueue, s.queue)
 		s.releaseLocked()
+		s.restartLiveLocked()
 	})
 }
 
@@ -881,4 +941,5 @@ func (s *Service) releaseLocked() {
 		close(ch)
 		delete(s.waiters, id)
 	}
+	s.settleLocked()
 }

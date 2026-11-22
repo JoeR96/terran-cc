@@ -16,7 +16,12 @@ const (
 
 // SetPlan sets the plan days GET /plans/upcoming serves: a JSON array of
 // UpcomingDayDto. nil means no active plan (404).
-func (f *Fake) SetPlan(days []byte) { f.mu.Lock(); f.plan = days; f.mu.Unlock() }
+func (f *Fake) SetPlan(days []byte) {
+	f.mu.Lock()
+	f.plan = days
+	f.changedLocked("plan")
+	f.mu.Unlock()
+}
 
 func session(kind int, label string, status int, liftDay int) map[string]any {
 	s := map[string]any{
@@ -104,11 +109,11 @@ func (f *Fake) servePlan(w http.ResponseWriter, r *http.Request, path string) bo
 		}
 		for _, d := range days {
 			if d["date"] == date {
-				ok(w, map[string]any{"date": date, "phase": d["phase"], "sessions": d["sessions"], "week": map[string]any{"weekStart": date}})
+				okTagged(w, r, map[string]any{"date": date, "phase": d["phase"], "sessions": d["sessions"], "week": map[string]any{"weekStart": date}})
 				return true
 			}
 		}
-		ok(w, map[string]any{"date": date, "phase": nil, "sessions": []any{}, "week": map[string]any{"weekStart": date}})
+		okTagged(w, r, map[string]any{"date": date, "phase": nil, "sessions": []any{}, "week": map[string]any{"weekStart": date}})
 		return true
 	}
 	from := q.Get("from")
@@ -129,6 +134,6 @@ func (f *Fake) servePlan(w http.ResponseWriter, r *http.Request, path string) bo
 			out = append(out, d)
 		}
 	}
-	ok(w, out)
+	okTagged(w, r, out)
 	return true
 }

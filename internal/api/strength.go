@@ -79,8 +79,9 @@ func (s *server) strengthRoutes(mux *http.ServeMux) {
 		writeJSON(w, 200, s.strength.Sync(ctx))
 	})
 	// Training: the plan from 99-Strength, today first. ?from=YYYY-MM-DD
-	// and ?days=N (1-31) pick another range. While 99-Strength is down the
-	// last plan read comes back with sync.stale set.
+	// and ?days=N (1-31) pick another range; ?refresh=1 asks 99-Strength
+	// again now (a conditional GET) instead of serving a fresh cache. While
+	// 99-Strength is down the last plan read comes back with sync.stale set.
 	mux.HandleFunc("GET /api/training", func(w http.ResponseWriter, r *http.Request) {
 		if !s.remoteHabits() {
 			writeErr(w, strength.ErrNotConnected)
@@ -98,6 +99,9 @@ func (s *server) strengthRoutes(mux *http.ServeMux) {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), strengthTimeout)
 		defer cancel()
+		if q.Get("refresh") == "1" {
+			s.strength.RefreshTraining(ctx) // on failure Training serves the cache, marked stale
+		}
 		t, err := s.strength.Training(ctx, q.Get("from"), days)
 		if err != nil {
 			writeErr(w, err)
